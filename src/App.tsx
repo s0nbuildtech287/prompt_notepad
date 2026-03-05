@@ -289,6 +289,7 @@ export default function App() {
         onChange={handleImport} 
         accept=".txt" 
         className="hidden" 
+        aria-label="Import .txt file"
       />
       {/* Sidebar - Topics & Notes Accordion */}
       <aside className="w-72 border-r border-black/5 bg-white flex flex-col">
@@ -551,7 +552,7 @@ export default function App() {
                         <Sparkles className="w-4 h-4 text-black" />
                         <span>Gemini AI Assistant</span>
                       </div>
-                      <button onClick={() => setIsAiPanelOpen(false)} className="p-1 hover:bg-black/5 rounded">
+                      <button aria-label='xsp' onClick={() => setIsAiPanelOpen(false)} className="p-1 hover:bg-black/5 rounded">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
