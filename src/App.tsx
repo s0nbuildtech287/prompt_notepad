@@ -403,6 +403,51 @@ export default function App() {
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [availableModels, setAvailableModels] = useState<string[]>(['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'o1-mini']);
+
+  const fetchAvailableModels = async () => {
+    const apiKey = (process.env.OPENAI_API_KEY || '').trim();
+    if (!apiKey) return;
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData && Array.isArray(resData.data)) {
+          const filtered = resData.data
+            .map((m: any) => m.id)
+            .filter((id: string) => 
+              id.startsWith('gpt-') || 
+              id.startsWith('o1-') || 
+              id.startsWith('o3-') || 
+              id.includes('chatgpt')
+            )
+            .sort((a: string, b: string) => {
+              const priority = ['gpt-4o', 'gpt-4o-mini', 'o1-mini', 'o1-preview'];
+              const idxA = priority.indexOf(a);
+              const idxB = priority.indexOf(b);
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              if (idxA !== -1) return -1;
+              if (idxB !== -1) return 1;
+              return b.localeCompare(a);
+            });
+          
+          if (filtered.length > 0) {
+            setAvailableModels(filtered);
+            if (!filtered.includes(selectedModel)) {
+              setSelectedModel(filtered[0]);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch OpenAI models list:', error);
+    }
+  };
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
@@ -757,6 +802,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+    fetchAvailableModels();
   }, []);
 
   useEffect(() => {
@@ -765,6 +811,7 @@ export default function App() {
 
   useEffect(() => {
     if (isAiPanelOpen) {
+      fetchAvailableModels();
       setTimeout(() => {
         chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -987,7 +1034,7 @@ export default function App() {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: selectedModel,
           messages: openAiMessages,
           temperature: 0.7
         })
@@ -2471,14 +2518,35 @@ export default function App() {
               style={{ userSelect: 'none' }}
             />
             {/* Chat Header */}
-            <div className="h-16 border-b border-black/5 dark:border-b-white/5 flex items-center justify-between px-6 bg-white dark:bg-slate-900 shrink-0">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
-                <span className="font-bold text-sm text-black dark:text-white">Trợ lý Lên Kế hoạch</span>
+            <div className="h-16 border-b border-black/5 dark:border-b-white/5 flex items-center justify-between px-4 bg-white dark:bg-slate-900 shrink-0 gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse shrink-0" />
+                <span className="font-bold text-xs text-black dark:text-white shrink-0">Trợ lý</span>
               </div>
+              
+              {/* Model Dropdown */}
+              <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-xl px-2 py-1">
+                <span className="text-[9px] text-black/40 dark:text-white/40 font-bold uppercase tracking-wider">Model:</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="bg-transparent text-[10px] font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none cursor-pointer border-none p-0 pr-1 max-w-[130px]"
+                >
+                  {availableModels.map(modelName => (
+                    <option 
+                      key={modelName} 
+                      value={modelName} 
+                      className="bg-white dark:bg-slate-900 text-black dark:text-white font-semibold text-xs"
+                    >
+                      {modelName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button 
                 onClick={() => setIsAiPanelOpen(false)}
-                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer shrink-0"
                 title="Đóng chat"
               >
                 <X className="w-4 h-4" />
