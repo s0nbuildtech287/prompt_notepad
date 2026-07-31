@@ -176,6 +176,15 @@ export default function App() {
   const [data, setData] = useState<AppData>({ topics: [], notes: [] });
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const handleSelectNote = (noteId: string | null) => {
+    setSelectedNoteId(noteId);
+    if (noteId) {
+      setOpenTabs(prev => {
+        if (prev.includes(noteId)) return prev;
+        return [...prev, noteId];
+      });
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -404,6 +413,35 @@ export default function App() {
   ]);
   const chatBottomRef = React.useRef<HTMLDivElement>(null);
 
+  // Tabbed Editor and Collapsible Notes states
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+
+  const handleCloseTab = (noteId: string) => {
+    setOpenTabs(prev => {
+      const filtered = prev.filter(id => id !== noteId);
+      if (selectedNoteId === noteId) {
+        if (filtered.length > 0) {
+          const index = prev.indexOf(noteId);
+          const newActiveId = filtered[index] || filtered[index - 1] || filtered[0];
+          setSelectedNoteId(newActiveId);
+        } else {
+          setSelectedNoteId(null);
+        }
+      }
+      return filtered;
+    });
+  };
+
+  useEffect(() => {
+    if (selectedNoteId) {
+      setOpenTabs(prev => {
+        if (prev.includes(selectedNoteId)) return prev;
+        return [...prev, selectedNoteId];
+      });
+    }
+  }, [selectedNoteId]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       console.log("handleFileUpload: File upload event triggered", e.target.files);
@@ -463,6 +501,7 @@ export default function App() {
                 return newData;
               });
               
+              setExpandedNotes(prev => ({ ...prev, [finalParentId]: true }));
               alert(`Đã tải lên thành công ${totalFiles} tệp tài liệu dưới dạng kế hoạch con!`);
             }
           } catch (innerErr) {
@@ -703,7 +742,7 @@ export default function App() {
         const parsed = JSON.parse(event.target?.result as string);
         if (parsed && Array.isArray(parsed.topics) && Array.isArray(parsed.notes)) {
           saveData(parsed);
-          setSelectedNoteId(parsed.notes[0]?.id || null);
+          handleSelectNote(parsed.notes[0]?.id || null);
           alert('Nhập dữ liệu JSON thành công!');
         } else {
           alert('Định dạng file JSON không hợp lệ. Phải chứa danh sách topics và notes.');
@@ -814,7 +853,7 @@ export default function App() {
     };
     const newData = { ...data, notes: [...data.notes, newNote] };
     saveData(newData);
-    setSelectedNoteId(newNote.id);
+    handleSelectNote(newNote.id);
     setIsEditing(true);
     setEditNote(newNote);
     setExpandedTopics(prev => ({ ...prev, [topicId]: true }));
@@ -868,7 +907,7 @@ export default function App() {
 
       const newData = { ...data, notes: [...data.notes, newNote] };
       saveData(newData);
-      setSelectedNoteId(newNote.id);
+      handleSelectNote(newNote.id);
       setIsEditing(false);
       setExpandedTopics(prev => ({ ...prev, [importingToTopicId]: true }));
       setImportingToTopicId(null);
@@ -1003,6 +1042,9 @@ export default function App() {
       notes: data.notes.filter(n => n.id !== id && n.parentNoteId !== id)
     };
     saveData(newData);
+    
+    // Remove from openTabs
+    setOpenTabs(prev => prev.filter(tabId => tabId !== id && data.notes.find(n => n.id === tabId)?.parentNoteId !== id));
     
     const wasActiveNoteDeleted = selectedNoteId === id;
     const wasActiveParentDeleted = data.notes.find(n => n.id === selectedNoteId)?.parentNoteId === id;
@@ -1444,12 +1486,32 @@ export default function App() {
                           <React.Fragment key={note.id}>
                             <div
                               className={cn(
-                                "w-full rounded-md text-xs transition-all flex items-center gap-2 group px-3 py-1.5",
+                                "w-full rounded-md text-xs transition-all flex items-center gap-1.5 group px-2 py-1.5",
                                 selectedNoteId === note.id 
                                   ? "bg-black/5 dark:bg-white/5 text-black dark:text-white font-semibold" 
                                   : "text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                               )}
                             >
+                              {childNotes.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedNotes(prev => ({ ...prev, [note.id]: !prev[note.id] }));
+                                  }}
+                                  className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white cursor-pointer shrink-0"
+                                >
+                                  <ChevronRight 
+                                    className={cn(
+                                      "w-3 h-3 transition-transform duration-200", 
+                                      expandedNotes[note.id] && "transform rotate-90"
+                                    )} 
+                                  />
+                                </button>
+                              ) : (
+                                <div className="w-4 shrink-0" />
+                              )}
+                              
                               <FileText className={cn("w-3 h-3 shrink-0", selectedNoteId === note.id ? "text-black dark:text-white" : "text-black/20 dark:text-white/20")} />
                               
                               {isRenaming ? (
@@ -1468,7 +1530,7 @@ export default function App() {
                                 <>
                                   <span 
                                     onClick={() => {
-                                      setSelectedNoteId(note.id);
+                                      handleSelectNote(note.id);
                                       setIsEditing(false);
                                     }}
                                     onDoubleClick={() => {
@@ -1508,8 +1570,8 @@ export default function App() {
                             </div>
 
                             {/* Render child notes (uploaded files) indented directly under this note */}
-                            {childNotes.length > 0 && (
-                              <div className="pl-6 space-y-0.5 border-l border-black/5 dark:border-white/5 ml-4 mb-1.5">
+                            {childNotes.length > 0 && expandedNotes[note.id] && (
+                              <div className="pl-6 space-y-0.5 border-l border-black/5 dark:border-white/5 ml-5 mb-1.5">
                                 {childNotes.map(childNote => (
                                   <div
                                     key={childNote.id}
@@ -1523,7 +1585,7 @@ export default function App() {
                                     <FileText className={cn("w-2.5 h-2.5 shrink-0", selectedNoteId === childNote.id ? "text-emerald-500" : "text-black/20 dark:text-white/20")} />
                                     <span
                                       onClick={() => {
-                                        setSelectedNoteId(childNote.id);
+                                        handleSelectNote(childNote.id);
                                         setIsEditing(false);
                                       }}
                                       className="flex-1 truncate cursor-pointer py-0.5"
@@ -1562,8 +1624,9 @@ export default function App() {
       {/* Editor / Preview */}
       <main className="flex-1 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
         {activeTab === 'plans' && (
-          activeNote ? (
-            <>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {activeNote ? (
+              <div className="flex-1 flex flex-col overflow-hidden">
               <header className="h-16 border-b border-black/5 dark:border-b-white/5 flex items-center justify-between px-8 shrink-0">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
@@ -1575,7 +1638,14 @@ export default function App() {
                     </span>
                   </div>
                   <div className="h-4 w-[1px] bg-black/5 dark:bg-white/10" />
-                  <h2 className="text-sm font-bold truncate max-w-md text-black dark:text-white">{activeNote.title}</h2>
+                  <h2 className="text-sm font-bold truncate max-w-md text-black dark:text-white">
+                    {(() => {
+                      const parentNote = activeNote.parentNoteId 
+                        ? data.notes.find(n => n.id === activeNote.parentNoteId) 
+                        : null;
+                      return parentNote ? parentNote.title : activeNote.title;
+                    })()}
+                  </h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {isEditing && (
@@ -1669,6 +1739,51 @@ export default function App() {
                   )}
                 </div>
               </header>
+
+              {/* Top Tab Bar (VS Code / IDLE style) */}
+              {openTabs.length > 0 && (
+                <div className="flex items-center bg-[#DEE2E6] dark:bg-slate-950 border-b border-black/5 dark:border-b-white/5 h-10 overflow-x-auto shrink-0 select-none scrollbar-none">
+                  <div className="flex items-center h-full">
+                    {openTabs.map(tabId => {
+                      const tabNote = data.notes.find(n => n.id === tabId);
+                      if (!tabNote) return null;
+                      const isActive = selectedNoteId === tabId;
+                      const isChild = !!tabNote.parentNoteId;
+                      return (
+                        <div
+                          key={tabId}
+                          onClick={() => {
+                            setSelectedNoteId(tabId);
+                            setIsEditing(false);
+                          }}
+                          className={cn(
+                            "group h-full px-4 flex items-center gap-2 text-xs transition-all cursor-pointer relative shrink-0 font-semibold border-r border-black/5 dark:border-r-white/5 select-none",
+                            isActive
+                              ? "bg-white dark:bg-slate-900 text-black dark:text-white"
+                              : "bg-[#E9ECEF] dark:bg-[#131924] text-black/50 dark:text-white/40 hover:bg-[#DEE2E6] dark:hover:bg-[#1e2738] hover:text-black dark:hover:text-white"
+                          )}
+                        >
+                          <FileText className={cn("w-3.5 h-3.5 shrink-0", isChild ? "text-emerald-500" : "text-black/35 dark:text-white/35")} />
+                          <span className="truncate max-w-[120px]">{tabNote.title.replace(/^📄\s*/, '')}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCloseTab(tabId);
+                            }}
+                            className="w-4 h-4 rounded-md hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-black/30 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 opacity-60 group-hover:opacity-100 transition-all ml-1"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                          {isActive && (
+                            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-emerald-500" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isEditing ? (
@@ -1979,18 +2094,18 @@ export default function App() {
                   </div>
                 )}
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-24 h-24 bg-black/5 dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8">
-                <FileText className="w-10 h-10 text-black/20 dark:text-white/20" />
+            </div>) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-24 h-24 bg-black/5 dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8">
+                  <FileText className="w-10 h-10 text-black/20 dark:text-white/20" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-black dark:text-white">Chọn một kế hoạch để xem</h2>
+                <p className="text-black/40 dark:text-white/40 max-w-xs">
+                  Chọn một kế hoạch từ thanh bên hoặc tạo mới để bắt đầu.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold mb-2 text-black dark:text-white">Chọn một kế hoạch để xem</h2>
-              <p className="text-black/40 dark:text-white/40 max-w-xs">
-                Chọn một kế hoạch từ thanh bên hoặc tạo mới để bắt đầu.
-              </p>
-            </div>
-          )
+            )}
+          </div>
         )}
 
         {activeTab === 'tree' && (
