@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Info,
+  Pin,
   BarChart2,
   Calendar,
   Bold,
@@ -1101,6 +1102,22 @@ export default function App() {
     showToast('Đã áp dụng nội dung vào kế hoạch hiện tại!', 'success');
   };
 
+  const handleTogglePinNote = (id: string) => {
+    const targetNote = data.notes.find(n => n.id === id);
+    if (!targetNote) return;
+    const nextPinState = !targetNote.isPinned;
+    const newData = {
+      ...data,
+      notes: data.notes.map(n => n.id === id ? { ...n, isPinned: nextPinState } : n)
+    };
+    saveData(newData);
+    if (nextPinState) {
+      showToast('Đã ghim kế hoạch lên đầu!', 'success');
+    } else {
+      showToast('Đã bỏ ghim kế hoạch!', 'info');
+    }
+  };
+
   const handleDeleteNote = (id: string) => {
     const newData = {
       ...data,
@@ -1387,6 +1404,65 @@ export default function App() {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 space-y-1">
+            {/* Pinned Plans Section */}
+            {(() => {
+              const pinnedNotes = data.notes.filter(n => n.isPinned);
+              if (pinnedNotes.length === 0) return null;
+              return (
+                <div className="mb-4 border-b border-black/5 dark:border-b-white/5 pb-3">
+                  <div className="flex items-center gap-1.5 mb-2 px-3 text-black/40 dark:text-white/40 select-none">
+                    <Pin className="w-3 h-3 text-emerald-500 fill-emerald-500/20 rotate-45" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Đã ghim</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {pinnedNotes.map(note => {
+                      const isActive = selectedNoteId === note.id;
+                      const isChild = !!note.parentNoteId;
+                      const topic = data.topics.find(t => t.id === note.topicId);
+                      return (
+                        <div
+                          key={`pinned-${note.id}`}
+                          onClick={() => {
+                            handleSelectNote(note.id);
+                            setIsEditing(false);
+                          }}
+                          className={cn(
+                            "group flex items-center justify-between px-3 py-1.5 rounded-lg text-xs cursor-pointer select-none transition-all",
+                            isActive
+                              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold"
+                              : "text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 truncate flex-1 mr-2">
+                            <FileText className={cn("w-3.5 h-3.5 shrink-0", isChild ? "text-emerald-500" : "text-black/35 dark:text-white/35")} />
+                            <div className="truncate flex flex-col items-start leading-tight">
+                              <span className="truncate max-w-[150px]">{note.title.replace(/^📄\s*/, '')}</span>
+                              {topic && (
+                                <span className="text-[8px] opacity-75 font-bold uppercase tracking-wider mt-0.5" style={{ color: topic.color }}>
+                                  {topic.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTogglePinNote(note.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 p-0.5 rounded text-black/30 dark:text-white/30 hover:text-red-500 transition-all cursor-pointer shrink-0"
+                            title="Bỏ ghim"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="pb-4 px-3 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-black dark:text-white/80">Dự án</p>
               <button 
@@ -1593,6 +1669,9 @@ export default function App() {
                                 />
                               ) : (
                                 <>
+                                  {note.isPinned && (
+                                    <Pin className="w-3 h-3 text-emerald-500 fill-emerald-500/20 shrink-0 rotate-45 mr-0.5" />
+                                  )}
                                   <span 
                                     onClick={() => {
                                       handleSelectNote(note.id);
@@ -1607,7 +1686,22 @@ export default function App() {
                                     {note.title || 'Untitled'}
                                   </span>
                                   
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTogglePinNote(note.id);
+                                      }}
+                                      className={cn(
+                                        "p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded cursor-pointer",
+                                        note.isPinned 
+                                          ? "text-emerald-500 hover:text-emerald-600" 
+                                          : "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white"
+                                      )}
+                                      title={note.isPinned ? "Bỏ ghim" : "Ghim lên đầu"}
+                                    >
+                                      <Pin className="w-3.5 h-3.5" />
+                                    </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1648,6 +1742,9 @@ export default function App() {
                                     )}
                                   >
                                     <FileText className={cn("w-2.5 h-2.5 shrink-0", selectedNoteId === childNote.id ? "text-emerald-500" : "text-black/20 dark:text-white/20")} />
+                                    {childNote.isPinned && (
+                                      <Pin className="w-2.5 h-2.5 text-emerald-500 fill-emerald-500/20 shrink-0 rotate-45" />
+                                    )}
                                     <span
                                       onClick={() => {
                                         handleSelectNote(childNote.id);
@@ -1657,6 +1754,21 @@ export default function App() {
                                     >
                                       {childNote.title}
                                     </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTogglePinNote(childNote.id);
+                                      }}
+                                      className={cn(
+                                        "p-0.5 hover:bg-black/5 dark:hover:bg-white/5 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity",
+                                        childNote.isPinned 
+                                          ? "text-emerald-500 hover:text-emerald-600 opacity-100" 
+                                          : "text-black/20 dark:text-white/20 hover:text-black dark:hover:text-white"
+                                      )}
+                                      title={childNote.isPinned ? "Bỏ ghim" : "Ghim lên đầu"}
+                                    >
+                                      <Pin className="w-3 h-3" />
+                                    </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();

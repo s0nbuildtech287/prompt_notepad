@@ -11,6 +11,7 @@ export interface Note {
   title: string;
   content: string;
   updatedAt: number;
+  isPinned?: boolean;
 }
 
 export interface MindmapNode {
