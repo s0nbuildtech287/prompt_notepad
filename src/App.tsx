@@ -24,6 +24,7 @@ import {
   Check,
   Network,
   BarChart2,
+  Calendar,
   Bold,
   Italic,
   List,
@@ -59,6 +60,105 @@ const remarkListBullet = () => {
   };
 };
 
+const PLAN_TEMPLATES = [
+  {
+    id: 'milestone',
+    title: 'Lộ trình Milestone Dự án',
+    description: 'Bố cục phân chia theo giai đoạn (Phase 1, 2, 3) kèm Milestone đánh dấu bằng biểu tượng màu sắc nổi bật.',
+    icon: 'milestone',
+    content: `# 🚀 Lộ trình Milestone Dự án: [Tên Dự Án]
+
+*   Trạng thái: 🟡 Đang lập kế hoạch
+*   Mục tiêu cốt lõi: [Mô tả ngắn gọn mục tiêu]
+*   Thời gian thực hiện: [Tháng/Năm]
+
+---
+
+## 📍 Giai đoạn 1: Chuẩn bị & Nghiên cứu (Khởi động)
+- [ ] Xác định yêu cầu chi tiết và phạm vi dự án
+- [ ] Phân tích đối thủ cạnh tranh và khảo sát người dùng
+- [ ] Thiết lập tài nguyên, cấu trúc thư mục làm việc
+- 🔴 **Milestone 1:** Hoàn thành tài liệu đặc tả dự án (SRS)
+
+## 📍 Giai đoạn 2: Thiết kế & Xây dựng (Thực thi)
+- [ ] Phác thảo sơ đồ mindmap / sơ đồ cây tổng quan
+- [ ] Thiết kế giao diện chi tiết (Wireframes/UI Mockups)
+- [ ] Triển khai các tính năng cốt lõi theo thứ tự ưu tiên
+- 🔵 **Milestone 2:** Phát hành phiên bản thử nghiệm đầu tiên (MVP)
+
+## 📍 Giai đoạn 3: Kiểm thử & Ra mắt (Bàn giao)
+- [ ] Thu thập phản hồi từ người dùng thử
+- [ ] Sửa các lỗi phát sinh và tối ưu hóa hiệu năng
+- [ ] Đóng gói và phát hành chính thức
+- 🟢 **Milestone 3:** Bàn giao và vận hành chính thức`
+  },
+  {
+    id: 'weekly',
+    title: 'Kế hoạch Tuần / Tháng',
+    description: 'Bố cục chia việc theo tuần (Tuần 1, 2), xác định Tiêu điểm trọng tâm (Core Focus) và Chỉ số đo lường hiệu suất (KPIs).',
+    icon: 'weekly',
+    content: `# 📅 Kế hoạch làm việc: [Tuần/Tháng ...]
+
+*   Tiêu điểm trọng tâm: 🎯 [Ghi mục tiêu quan trọng nhất tuần này]
+*   Chỉ số đo lường (KPI): [Ví dụ: Viết xong 3 bài plan, hoàn thành 5 đầu việc...]
+
+---
+
+## 📌 Danh sách công việc theo tuần
+
+### 🍏 Tuần 1: Khởi động & Triển khai nhanh
+- [ ] Nhiệm vụ quan trọng số 1
+- [ ] Nhiệm vụ quan trọng số 2
+- [ ] Họp tiến độ giữa tuần
+
+### 🍏 Tuần 2: Tăng tốc & Hoàn thiện
+- [ ] Tiếp tục triển khai các công việc còn tồn đọng
+- [ ] Tối ưu hóa kết quả và đóng gói
+- [ ] Báo cáo kết quả cuối tuần
+
+---
+
+## 📝 Ghi chú & Bài học kinh nghiệm
+> [Ghi lại các vướng mắc hoặc kinh nghiệm rút ra sau tuần làm việc]`
+  },
+  {
+    id: 'swot',
+    title: 'Phân tích SWOT & Chiến lược',
+    description: 'Phân tích SWOT (Điểm mạnh, Điểm yếu, Cơ hội, Thách thức) và kế hoạch hành động chiến lược chi tiết dạng danh sách dễ viết.',
+    icon: 'swot',
+    content: `# 📊 Phân tích SWOT & Kế hoạch Chiến lược
+
+*   Đối tượng phân tích: [Tên sản phẩm / Dự án / Bản thân]
+*   Ngày thực hiện: [Ngày/Tháng/Năm]
+
+---
+
+## 🔍 Phân tích các yếu tố (SWOT)
+
+### 🌟 Điểm mạnh (Strengths)
+- [Viết điểm mạnh thứ nhất của bạn tại đây]
+- [Viết điểm mạnh thứ hai]
+
+### ⚠️ Điểm yếu (Weaknesses)
+- [Viết điểm yếu thứ nhất của bạn tại đây]
+- [Viết điểm yếu thứ hai]
+
+### 🚀 Cơ hội (Opportunities)
+- [Viết cơ hội bên ngoài bạn có thể tận dụng]
+- [Viết cơ hội thứ hai]
+
+### ⚡ Thách thức (Threats)
+- [Viết thách thức/khó khăn bên ngoài cần phòng tránh]
+- [Viết thách thức thứ hai]
+
+---
+
+## 💡 Kế hoạch hành động (Action Plan)
+1.  **Phát huy điểm mạnh để đón đầu cơ hội:** [Chiến lược hành động...]
+2.  **Khắc phục điểm yếu để giảm thiểu thách thức:** [Chiến lược phòng thủ...]`
+  }
+];
+
 interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
@@ -78,7 +178,6 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'plans' | 'tree' | 'stats'>('plans');
-  const [editorViewMode, setEditorViewMode] = useState<'edit' | 'preview' | 'split'>('edit');
   const [activePopover, setActivePopover] = useState<'color' | 'emoji' | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameNoteTitle, setRenameNoteTitle] = useState('');
@@ -172,6 +271,68 @@ export default function App() {
 
   // JSON File input ref
   const fileInputJsonRef = React.useRef<HTMLInputElement>(null);
+
+  const handleToggleChecklist = (index: number) => {
+    if (!activeNote) return;
+    
+    const regex = /([-*+]\s+\[)([ xX])(\])/g;
+    let matchIndex = 0;
+    let newContent = activeNote.content.replace(regex, (match, p1, p2, p3) => {
+      if (matchIndex === index) {
+        const newChecked = p2 === ' ' ? 'x' : ' ';
+        matchIndex++;
+        return `${p1}${newChecked}${p3}`;
+      }
+      matchIndex++;
+      return match;
+    });
+    
+    setData(prev => {
+      const updatedNotes = prev.notes.map(n => {
+        if (n.id === activeNote.id) {
+          return { ...n, content: newContent };
+        }
+        return n;
+      });
+      const newData = { ...prev, notes: updatedNotes };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      return newData;
+    });
+  };
+
+  const handleMarkdownClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'checkbox') {
+      e.preventDefault();
+      
+      const container = e.currentTarget;
+      const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+      const index = checkboxes.indexOf(target);
+      if (index !== -1) {
+        handleToggleChecklist(index);
+      }
+    }
+  };
+
+  const handleApplyTemplate = (noteId: string, templateContent: string) => {
+    setData(prev => {
+      const updatedNotes = prev.notes.map(n => {
+        if (n.id === noteId) {
+          return { ...n, content: templateContent };
+        }
+        return n;
+      });
+      const newData = { ...prev, notes: updatedNotes };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      return newData;
+    });
+    
+    setEditNote({
+      ...activeNote,
+      content: templateContent
+    });
+    setIsEditing(true);
+  };
 
   const insertTextAtCursor = (before: string, after: string = '') => {
     const textarea = textareaRef.current;
@@ -1044,38 +1205,6 @@ export default function App() {
                   <h2 className="text-sm font-bold truncate max-w-md">{activeNote.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isEditing && (
-                    <div className="flex bg-black/5 p-1 rounded-xl mr-2">
-                      <button
-                        onClick={() => setEditorViewMode('edit')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'edit' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
-                        )}
-                      >
-                        Viết
-                      </button>
-                      <button
-                        onClick={() => setEditorViewMode('preview')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'preview' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
-                        )}
-                      >
-                        Xem trước
-                      </button>
-                      <button
-                        onClick={() => setEditorViewMode('split')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'split' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
-                        )}
-                      >
-                        Song song
-                      </button>
-                    </div>
-                  )}
-
                   {!isEditing && activeNote && (
                     <>
                       <button
@@ -1335,57 +1464,81 @@ export default function App() {
                     </div>
 
                     {/* Editor Content Area */}
-                    <div className="flex-1 flex overflow-hidden bg-white">
-                      {(editorViewMode === 'edit' || editorViewMode === 'split') && (
-                        <div className={cn(
-                          "h-full p-8 overflow-y-auto flex flex-col",
-                          editorViewMode === 'split' ? "w-1/2 border-r border-black/5" : "w-full"
-                        )}>
-                          <textarea
-                            ref={textareaRef}
-                            autoFocus
-                            value={editNote.content}
-                            onChange={e => setEditNote({ ...editNote, content: e.target.value })}
-                            placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
-                            className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono focus:bg-transparent"
-                          />
-                        </div>
-                      )}
-                      
-                      {(editorViewMode === 'preview' || editorViewMode === 'split') && (
-                        <div className={cn(
-                          "h-full p-8 overflow-y-auto",
-                          editorViewMode === 'split' ? "w-1/2 bg-[#F8F9FA]/40" : "w-full"
-                        )}>
-                          <div className="markdown-body">
-                            <Markdown remarkPlugins={[remarkGfm, remarkListBullet]} rehypePlugins={[rehypeRaw]}>
-                              {editNote.content}
-                            </Markdown>
-                          </div>
-                        </div>
-                      )}
+                    <div className="flex-1 flex overflow-hidden bg-white p-8">
+                      <textarea
+                        ref={textareaRef}
+                        autoFocus
+                        value={editNote.content}
+                        onChange={e => setEditNote({ ...editNote, content: e.target.value })}
+                        placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
+                        className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono focus:bg-transparent"
+                      />
                     </div>
                   </div>
                 ) : (
                   <div className="flex-1 overflow-y-auto p-12 w-full">
                     <div className="max-w-4xl mx-auto w-full">
-                      <div className="markdown-body">
-                        <Markdown remarkPlugins={[remarkGfm, remarkListBullet]} rehypePlugins={[rehypeRaw]}>
+                      <div className="markdown-body" onClick={handleMarkdownClick}>
+                        <Markdown 
+                          remarkPlugins={[remarkGfm, remarkListBullet]} 
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                            input: ({node, ...props}) => {
+                              if (props.type === 'checkbox') {
+                                return (
+                                  <input
+                                    type="checkbox"
+                                    checked={props.checked}
+                                    onChange={() => {}}
+                                    className={props.className}
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                );
+                              }
+                              return <input {...props} />;
+                            }
+                          }}
+                        >
                           {activeNote.content}
                         </Markdown>
                       </div>
                       {activeNote.content === '' && (
-                        <div className="flex flex-col items-center justify-center py-20 text-black/20">
-                          <FileText className="w-16 h-16 mb-4" />
-                          <p className="text-xl font-medium">Kế hoạch này đang trống</p>
+                        <div className="flex flex-col items-center py-12 px-6">
+                          <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center mb-6">
+                            <FileText className="w-8 h-8 text-black/30" />
+                          </div>
+                          <h3 className="text-xl font-bold text-black mb-2">Kế hoạch này đang trống</h3>
+                          <p className="text-sm text-black/40 text-center max-w-md mb-10">
+                            Bắt đầu viết kế hoạch bằng cách tự viết từ đầu hoặc chọn một mẫu khung sườn chuyên nghiệp dưới đây:
+                          </p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
+                            {PLAN_TEMPLATES.map(tpl => {
+                              const IconComponent = tpl.id === 'milestone' ? Network : tpl.id === 'weekly' ? Calendar : BarChart2;
+                              return (
+                                <button
+                                  key={tpl.id}
+                                  onClick={() => handleApplyTemplate(activeNote.id, tpl.content)}
+                                  className="group border border-black/5 hover:border-black/15 bg-[#F8F9FA]/40 hover:bg-white rounded-2xl p-6 text-left transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer flex flex-col items-start"
+                                >
+                                  <div className="w-10 h-10 rounded-xl bg-black/5 group-hover:bg-black group-hover:text-white flex items-center justify-center text-black/55 mb-4 transition-colors shrink-0">
+                                    <IconComponent className="w-5 h-5" />
+                                  </div>
+                                  <h4 className="font-bold text-sm text-black mb-1">{tpl.title}</h4>
+                                  <p className="text-xs text-black/40 leading-relaxed">{tpl.description}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
                           <button 
                             onClick={() => {
                               setIsEditing(true);
                               setEditNote(activeNote);
                             }}
-                            className="mt-6 text-sm font-bold text-black hover:underline cursor-pointer"
+                            className="px-6 py-2.5 bg-black hover:scale-[1.02] active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-lg shadow-black/5 transition-all cursor-pointer"
                           >
-                            Bắt đầu soạn thảo
+                            Tự viết từ đầu (Khung trống)
                           </button>
                         </div>
                       )}
