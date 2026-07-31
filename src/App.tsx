@@ -42,7 +42,7 @@ import rehypeRaw from 'rehype-raw';
 import { GoogleGenAI } from "@google/genai";
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Topic, Note, AppData } from './types';
+import { Topic, Note, AppData, MindmapNode } from './types';
 
 const remarkListBullet = () => {
   return (tree: any) => {
@@ -185,6 +185,167 @@ export default function App() {
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [renameTopicName, setRenameTopicName] = useState('');
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Mindmap States
+  const mindmapNodes = data.mindmapNodes || [];
+  const setMindmapNodes = (newNodes: MindmapNode[] | ((prev: MindmapNode[]) => MindmapNode[])) => {
+    setData(prev => {
+      const nextNodes = typeof newNodes === 'function' ? newNodes(prev.mindmapNodes || []) : newNodes;
+      const newData = { ...prev, mindmapNodes: nextNodes };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      // Async save to backend
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newData),
+      }).catch(err => console.error(err));
+      return newData;
+    });
+  };
+
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [renamingMNodeId, setRenamingMNodeId] = useState<string | null>(null);
+  const [renameMNodeText, setRenameMNodeText] = useState('');
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  const getBezierPath = (startX: number, startY: number, endX: number, endY: number) => {
+    const controlX = startX + (endX - startX) * 0.5;
+    return `M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`;
+  };
+
+  const getNodeDepth = (node: MindmapNode): number => {
+    let depth = 0;
+    let current = node;
+    const visited = new Set<string>();
+    while (current.parentId && !visited.has(current.id)) {
+      visited.add(current.id);
+      const parent = mindmapNodes.find(n => n.id === current.parentId);
+      if (!parent) break;
+      depth++;
+      current = parent;
+    }
+    return depth;
+  };
+
+  const getNodeStyles = (node: MindmapNode) => {
+    const depth = getNodeDepth(node);
+    const styles = [
+      {
+        bgClass: "bg-slate-900 border-slate-950 text-white font-bold shadow-md",
+        lineColor: "rgba(15,23,42,0.45)",
+        dotColor: "rgba(15,23,42,0.75)"
+      },
+      {
+        bgClass: "bg-white border-indigo-500/50 text-indigo-700 font-semibold shadow-sm hover:border-indigo-500",
+        lineColor: "rgba(99,102,241,0.65)",
+        dotColor: "rgba(99,102,241,0.85)"
+      },
+      {
+        bgClass: "bg-white border-emerald-500/50 text-emerald-700 font-medium shadow-sm hover:border-emerald-500",
+        lineColor: "rgba(16,185,129,0.65)",
+        dotColor: "rgba(16,185,129,0.85)"
+      },
+      {
+        bgClass: "bg-white border-amber-500/50 text-amber-700 font-medium shadow-sm hover:border-amber-500",
+        lineColor: "rgba(245,158,11,0.65)",
+        dotColor: "rgba(245,158,11,0.85)"
+      },
+      {
+        bgClass: "bg-white border-slate-300 text-slate-500 shadow-sm hover:border-slate-500",
+        lineColor: "rgba(148,163,184,0.5)",
+        dotColor: "rgba(148,163,184,0.8)"
+      }
+    ];
+    return styles[Math.min(depth, styles.length - 1)];
+  };
+
+  const handleAddRootNode = () => {
+    const newNode: MindmapNode = {
+      id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      text: 'Ý tưởng mới',
+      parentId: null,
+      x: 150 - panOffset.x,
+      y: 200 - panOffset.y,
+      type: 'root'
+    };
+    setMindmapNodes(prev => [...prev, newNode]);
+  };
+
+  const handleAddSubNode = (parentId: string) => {
+    const parent = mindmapNodes.find(n => n.id === parentId);
+    if (!parent) return;
+    const newNode: MindmapNode = {
+      id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      text: 'Nhánh con mới',
+      parentId,
+      x: parent.x + 220,
+      y: parent.y + (Math.random() * 80 - 40),
+      type: 'sub'
+    };
+    setMindmapNodes(prev => [...prev, newNode]);
+  };
+
+  const handleDeleteMNode = (nodeId: string) => {
+    setMindmapNodes(prev => {
+      const idsToDelete = new Set<string>([nodeId]);
+      let sizeBefore = 0;
+      while (idsToDelete.size !== sizeBefore) {
+        sizeBefore = idsToDelete.size;
+        prev.forEach(n => {
+          if (n.parentId && idsToDelete.has(n.parentId)) {
+            idsToDelete.add(n.id);
+          }
+        });
+      }
+      return prev.filter(n => !idsToDelete.has(n.id));
+    });
+  };
+
+  const handleRenameMNode = (nodeId: string, newText: string) => {
+    setMindmapNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        return { ...n, text: newText.trim() || 'Nhánh không tên' };
+      }
+      return n;
+    }));
+    setRenamingMNodeId(null);
+  };
+
+  const handleSyncFromProject = () => {
+    const newNodes: MindmapNode[] = [];
+    let currentY = 80;
+    
+    data.topics.forEach((topic, tIdx) => {
+      const topicNodeId = `topic_${topic.id}`;
+      newNodes.push({
+        id: topicNodeId,
+        text: topic.name,
+        parentId: null,
+        x: 100,
+        y: currentY,
+        type: 'root'
+      });
+      
+      const notes = data.notes.filter(n => n.topicId === topic.id);
+      notes.forEach((note, nIdx) => {
+        newNodes.push({
+          id: `note_${note.id}`,
+          text: note.title || 'Không tiêu đề',
+          parentId: topicNodeId,
+          x: 340,
+          y: currentY + (nIdx * 60) - ((notes.length - 1) * 30),
+          type: 'sub'
+        });
+      });
+      
+      currentY += Math.max(notes.length * 60, 100);
+    });
+    
+    setMindmapNodes(newNodes);
+  };
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -1614,61 +1775,279 @@ export default function App() {
         )}
 
         {activeTab === 'tree' && (
-          <div className="flex-1 flex flex-col p-12 overflow-y-auto">
-            <div className="max-w-4xl mx-auto w-full space-y-8">
+          <div className="flex-1 flex flex-col overflow-hidden relative select-none bg-[#F8F9FA]">
+            {/* Header bar */}
+            <div className="h-16 border-b border-black/5 bg-white flex items-center justify-between px-8 shrink-0 relative z-20">
               <div>
-                <h2 className="text-2xl font-black text-black">Sơ đồ cây & Mindmap</h2>
-                <p className="text-black/40 text-sm mt-1">Phác thảo lộ trình và chia nhóm ý tưởng dưới dạng trực quan</p>
+                <h2 className="text-sm font-bold text-black flex items-center gap-2">
+                  <Network className="w-4 h-4 text-black/50" />
+                  Sơ đồ cây & Mindmap tương tác
+                </h2>
+                <p className="text-[10px] text-black/40">Kéo thả tự do, tạo nhánh chính/phụ và đồng bộ hóa tiến độ</p>
               </div>
               
-              <div className="bg-[#F8F9FA] border border-black/5 rounded-3xl p-12 flex flex-col items-center justify-center min-h-[500px] text-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-60 pointer-events-none" />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSyncFromProject}
+                  className="px-3.5 py-1.5 border border-black/5 hover:border-black/15 bg-white rounded-xl text-xs font-bold text-black/75 cursor-pointer hover:bg-black/5 transition-all flex items-center gap-1.5"
+                  title="Tự động đồng bộ sơ đồ từ danh sách dự án bên trái"
+                >
+                  <Network className="w-3.5 h-3.5 text-emerald-500" />
+                  Đồng bộ từ Dự án
+                </button>
                 
-                {/* Visual Mock Tree Chart */}
-                <div className="flex flex-col items-center gap-12 relative z-10 w-full max-w-lg">
-                  <div className="bg-black text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg">
-                    Dự án Youtube
-                  </div>
-                  
-                  <div className="flex justify-between w-full relative">
-                    {/* Connecting lines */}
-                    <div className="absolute top-[-24px] left-1/2 right-1/2 w-0.5 h-6 bg-black/10 -translate-x-1/2" />
-                    <div className="absolute top-[-24px] left-[15%] right-[15%] h-0.5 bg-black/10" />
-                    
-                    <div className="flex flex-col items-center gap-6 w-[45%]">
-                      <div className="absolute top-[-24px] left-[15%] w-0.5 h-6 bg-black/10" />
-                      <div className="bg-white border border-black/10 text-black px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm w-full">
-                        Kênh youtube năng lượng
-                      </div>
-                      <div className="flex flex-col gap-2 w-4/5 text-left pl-4 border-l-2 border-emerald-500/30">
-                        <span className="text-[10px] text-black/50">○ Lên kịch bản 5 video</span>
-                        <span className="text-[10px] text-black/50">○ Quay phim cơ bản</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-6 w-[45%]">
-                      <div className="absolute top-[-24px] right-[15%] w-0.5 h-6 bg-black/10" />
-                      <div className="bg-white border border-black/10 text-black px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm w-full">
-                        Chiến dịch truyền thông
-                      </div>
-                      <div className="flex flex-col gap-2 w-4/5 text-left pl-4 border-l-2 border-emerald-500/30">
-                        <span className="text-[10px] text-black/50">○ Tạo poster quảng bá</span>
-                        <span className="text-[10px] text-black/50">○ Đăng bài Facebook</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <button
+                  onClick={handleAddRootNode}
+                  className="px-3.5 py-1.5 bg-black hover:scale-[1.02] active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Thêm nhánh chính
+                </button>
                 
-                <div className="mt-12 max-w-xs relative z-10">
-                  <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3">
-                    Đang phát triển
-                  </div>
-                  <h3 className="font-bold text-lg mb-1">Thiết kế Sơ đồ Dự án</h3>
-                  <p className="text-xs text-black/40">
-                    Tính năng vẽ sơ đồ tư duy (mindmap) và liên kết các kế hoạch con dưới dạng cây thư mục trực quan đang được nghiên cứu phát triển.
-                  </p>
-                </div>
+                {mindmapNodes.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Bạn có chắc chắn muốn xóa toàn bộ sơ đồ hiện tại không?')) {
+                        setMindmapNodes([]);
+                      }
+                    }}
+                    className="p-1.5 hover:bg-red-50 text-black/40 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                    title="Xóa toàn bộ sơ đồ"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
+            </div>
+
+            {/* Mindmap Canvas Board */}
+            <div 
+              id="mindmap-board"
+              className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => {
+                const target = e.target as HTMLElement;
+                if (target.id === 'mindmap-board' || target.tagName === 'svg') {
+                  setIsPanning(true);
+                  setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+                }
+              }}
+              onPointerMove={(e) => {
+                const board = document.getElementById('mindmap-board');
+                if (!board) return;
+                const rect = board.getBoundingClientRect();
+                
+                if (draggedNodeId) {
+                  const x = e.clientX - rect.left - dragOffset.x - panOffset.x;
+                  const y = e.clientY - rect.top - dragOffset.y - panOffset.y;
+                  setMindmapNodes(prev => prev.map(n => {
+                    if (n.id === draggedNodeId) {
+                      return { ...n, x, y };
+                    }
+                    return n;
+                  }));
+                } else if (isPanning) {
+                  setPanOffset({
+                    x: e.clientX - panStart.x,
+                    y: e.clientY - panStart.y
+                  });
+                }
+              }}
+              onPointerUp={() => {
+                setDraggedNodeId(null);
+                setIsPanning(false);
+              }}
+              onPointerLeave={() => {
+                setDraggedNodeId(null);
+                setIsPanning(false);
+              }}
+            >
+              {/* Dot grid background */}
+              <div 
+                className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none transition-all duration-75"
+                style={{ 
+                  backgroundPosition: `${panOffset.x}px ${panOffset.y}px`
+                }}
+              />
+
+              {/* Connecting lines SVG layer */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                {mindmapNodes.map(node => {
+                  if (!node.parentId) return null;
+                  const parent = mindmapNodes.find(n => n.id === node.parentId);
+                  if (!parent) return null;
+
+                  const parentW = parent.type === 'root' ? 180 : 160;
+                  const parentH = 40;
+                  const childW = node.type === 'root' ? 180 : 160;
+                  const childH = 40;
+
+                  let startX, startY, endX, endY;
+                  if (node.x > parent.x + (parentW / 2)) {
+                    startX = parent.x + parentW + panOffset.x;
+                    startY = parent.y + (parentH / 2) + panOffset.y;
+                    endX = node.x + panOffset.x;
+                    endY = node.y + (childH / 2) + panOffset.y;
+                  } else {
+                    startX = parent.x + panOffset.x;
+                    startY = parent.y + (parentH / 2) + panOffset.y;
+                    endX = node.x + childW + panOffset.x;
+                    endY = node.y + (childH / 2) + panOffset.y;
+                  }
+
+                  const nodeStyle = getNodeStyles(node);
+                  return (
+                    <g key={`link_${node.id}`}>
+                      <path 
+                        d={getBezierPath(startX, startY, endX, endY)} 
+                        fill="none" 
+                        stroke={nodeStyle.lineColor} 
+                        strokeWidth={node.parentId ? '2' : '2.5'} 
+                        strokeDasharray={node.parentId ? '6 4' : undefined}
+                      />
+                      <circle cx={startX} cy={startY} r="3.5" fill={nodeStyle.lineColor} />
+                      <circle cx={endX} cy={endY} r="3.5" fill={nodeStyle.dotColor} />
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Rendering interactive nodes */}
+              <div className="absolute inset-0 pointer-events-none z-10">
+                {mindmapNodes.map(node => {
+                  const isNodeRenaming = renamingMNodeId === node.id;
+                  const nodeStyle = getNodeStyles(node);
+                  const isRoot = !node.parentId;
+                  const nodeWidth = isRoot ? 180 : 160;
+                  
+                  return (
+                    <div
+                      key={node.id}
+                      className={cn(
+                        "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
+                        nodeStyle.bgClass
+                      )}
+                      style={{ 
+                        left: node.x + panOffset.x, 
+                        top: node.y + panOffset.y,
+                        width: `${nodeWidth}px`,
+                        height: '40px',
+                        cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        if (isNodeRenaming) return;
+                        setDraggedNodeId(node.id);
+                        
+                        const board = document.getElementById('mindmap-board');
+                        if (board) {
+                          const rect = board.getBoundingClientRect();
+                          setDragOffset({
+                            x: e.clientX - rect.left - node.x - panOffset.x,
+                            y: e.clientY - rect.top - node.y - panOffset.y
+                          });
+                        }
+                      }}
+                    >
+                      {isNodeRenaming ? (
+                        <input
+                          autoFocus
+                          value={renameMNodeText}
+                          onChange={(e) => setRenameMNodeText(e.target.value)}
+                          onBlur={() => handleRenameMNode(node.id, renameMNodeText)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText);
+                            if (e.key === 'Escape') setRenamingMNodeId(null);
+                          }}
+                          className={cn(
+                            "w-full bg-transparent border-none focus:ring-0 focus:outline-none p-0 text-xs font-normal text-center rounded",
+                            isRoot ? "text-white" : "text-inherit"
+                          )}
+                          style={{ outline: 'none' }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingMNodeId(node.id);
+                            setRenameMNodeText(node.text);
+                          }}
+                          className="flex-1 truncate text-center cursor-pointer"
+                        >
+                          {node.text}
+                        </span>
+                      )}
+
+                      {!isNodeRenaming && (
+                        <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white border border-black/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddSubNode(node.id);
+                            }}
+                            className="p-1 hover:bg-emerald-50 rounded text-emerald-600 cursor-pointer"
+                            title="Thêm nhánh con"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRenamingMNodeId(node.id);
+                              setRenameMNodeText(node.text);
+                            }}
+                            className="p-1 hover:bg-black/5 rounded text-black/50 hover:text-black cursor-pointer"
+                            title="Đổi tên"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMNode(node.id);
+                            }}
+                            className="p-1 hover:bg-red-50 rounded text-red-500 cursor-pointer"
+                            title="Xóa nhánh"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Instructions / Empty state overlay */}
+              {mindmapNodes.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 pointer-events-none">
+                  <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center mb-6">
+                    <Network className="w-8 h-8 text-black/30" />
+                  </div>
+                  <h3 className="text-base font-bold text-black mb-1">Mindmap của bạn đang trống</h3>
+                  <p className="text-xs text-black/40 max-w-sm mb-6 leading-relaxed">
+                    Bạn có thể tự tạo nhánh chính hoặc đồng bộ hóa trực tiếp từ cấu trúc Dự án & Kế hoạch bên cột trái.
+                  </p>
+                  
+                  <div className="flex gap-3 pointer-events-auto">
+                    <button
+                      onClick={handleSyncFromProject}
+                      className="px-4 py-2 border border-black/10 hover:border-black/20 bg-white rounded-xl text-xs font-bold text-black/70 transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Network className="w-3.5 h-3.5 text-emerald-500" />
+                      Đồng bộ từ Dự án
+                    </button>
+                    
+                    <button
+                      onClick={handleAddRootNode}
+                      className="px-4 py-2 bg-black hover:scale-[1.02] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm nhánh chính
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1691,8 +2070,8 @@ export default function App() {
                   <p className="text-3xl font-black text-black mt-2">{data.notes.length}</p>
                 </div>
                 <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
-                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Mức độ hoàn thành</span>
-                  <p className="text-3xl font-black text-emerald-600 mt-2">78%</p>
+                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số sơ đồ</span>
+                  <p className="text-3xl font-black text-black mt-2">{mindmapNodes.length}</p>
                 </div>
               </div>
 

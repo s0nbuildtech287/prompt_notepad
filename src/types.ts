@@ -12,7 +12,17 @@ export interface Note {
   updatedAt: number;
 }
 
+export interface MindmapNode {
+  id: string;
+  text: string;
+  parentId: string | null;
+  x: number;
+  y: number;
+  type?: 'root' | 'main' | 'sub';
+}
+
 export interface AppData {
   topics: Topic[];
   notes: Note[];
+  mindmapNodes?: MindmapNode[];
 }
