@@ -23,6 +23,9 @@ import {
   Copy,
   Check,
   Network,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
   BarChart2,
   Calendar,
   Bold,
@@ -174,6 +177,14 @@ function cn(...inputs: ClassValue[]) {
 
 export default function App() {
   const [data, setData] = useState<AppData>({ topics: [], notes: [] });
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>([]);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = crypto.randomUUID();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const handleSelectNote = (noteId: string | null) => {
@@ -491,7 +502,7 @@ export default function App() {
     try {
       console.log("handleFileUpload: File upload event triggered", e.target.files);
       if (!activeNote) {
-        alert('Vui lòng chọn một kế hoạch bên Navigator trước khi đính kèm/tải tệp lên!');
+        showToast('Vui lòng chọn một kế hoạch bên Navigator trước khi đính kèm/tải tệp lên!', 'error');
         return;
       }
       const files = e.target.files;
@@ -547,24 +558,24 @@ export default function App() {
               });
               
               setExpandedNotes(prev => ({ ...prev, [finalParentId]: true }));
-              alert(`Đã tải lên thành công ${totalFiles} tệp tài liệu dưới dạng kế hoạch con!`);
+              showToast(`Đã tải lên thành công ${totalFiles} tệp tài liệu dưới dạng kế hoạch con!`, 'success');
             }
           } catch (innerErr) {
             console.error("handleFileUpload: Error processing file data", innerErr);
-            alert('Lỗi xử lý dữ liệu tệp: ' + (innerErr as Error).message);
+            showToast('Lỗi xử lý dữ liệu tệp: ' + (innerErr as Error).message, 'error');
           }
         };
         
         reader.onerror = (event) => {
           console.error("handleFileUpload: FileReader error event", event);
-          alert('Không thể đọc tệp từ hệ thống: ' + event.target?.error?.message);
+          showToast('Không thể đọc tệp từ hệ thống: ' + event.target?.error?.message, 'error');
         };
         
         reader.readAsText(file);
       });
     } catch (err) {
       console.error("handleFileUpload: Top level error catch", err);
-      alert('Lỗi khi tải tệp lên: ' + (err as Error).message);
+      showToast('Lỗi khi tải tệp lên: ' + (err as Error).message, 'error');
     } finally {
       e.target.value = '';
     }
@@ -788,12 +799,12 @@ export default function App() {
         if (parsed && Array.isArray(parsed.topics) && Array.isArray(parsed.notes)) {
           saveData(parsed);
           handleSelectNote(parsed.notes[0]?.id || null);
-          alert('Nhập dữ liệu JSON thành công!');
+          showToast('Nhập dữ liệu JSON thành công!', 'success');
         } else {
-          alert('Định dạng file JSON không hợp lệ. Phải chứa danh sách topics và notes.');
+          showToast('Định dạng file JSON không hợp lệ. Phải chứa danh sách topics và notes.', 'error');
         }
       } catch (err) {
-        alert('Lỗi đọc file JSON: ' + (err as Error).message);
+        showToast('Lỗi đọc file JSON: ' + (err as Error).message, 'error');
       }
       if (fileInputJsonRef.current) fileInputJsonRef.current.value = '';
     };
@@ -1079,7 +1090,7 @@ export default function App() {
 
   const handleApplyMessageToPlan = (text: string) => {
     if (!activeNote) {
-      alert('Vui lòng chọn một kế hoạch bên thanh điều hướng để áp dụng.');
+      showToast('Vui lòng chọn một kế hoạch bên thanh điều hướng để áp dụng.', 'error');
       return;
     }
     const newData = {
@@ -1087,7 +1098,7 @@ export default function App() {
       notes: data.notes.map(n => n.id === activeNote.id ? { ...n, content: text, updatedAt: Date.now() } : n)
     };
     saveData(newData);
-    alert('Đã áp dụng nội dung vào kế hoạch hiện tại!');
+    showToast('Đã áp dụng nội dung vào kế hoạch hiện tại!', 'success');
   };
 
   const handleDeleteNote = (id: string) => {
@@ -2593,7 +2604,7 @@ export default function App() {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(msg.text);
-                            alert('Đã sao chép nội dung kế hoạch!');
+                            showToast('Đã sao chép nội dung kế hoạch!', 'success');
                           }}
                           className="flex items-center gap-1 text-[10px] text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
                           title="Sao chép nội dung"
@@ -2670,6 +2681,49 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Toast Notification Container */}
+      <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+        <AnimatePresence>
+          {toasts.map(toast => {
+            const isSuccess = toast.type === 'success';
+            const isError = toast.type === 'error';
+            return (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+                className={cn(
+                  "p-3 rounded-xl border flex items-start gap-3 shadow-lg pointer-events-auto backdrop-blur-md transition-all",
+                  isSuccess 
+                    ? "bg-emerald-500/90 dark:bg-emerald-950/90 border-emerald-500/20 text-white" 
+                    : isError
+                      ? "bg-red-500/90 dark:bg-red-950/90 border-red-500/20 text-white"
+                      : "bg-blue-500/90 dark:bg-blue-950/90 border-blue-500/20 text-white"
+                )}
+              >
+                {isSuccess ? (
+                  <CheckCircle2 className="w-5 h-5 shrink-0 text-white animate-bounce" />
+                ) : isError ? (
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-white animate-pulse" />
+                ) : (
+                  <Info className="w-5 h-5 shrink-0 text-white" />
+                )}
+                <div className="flex-1 text-xs font-semibold leading-relaxed">
+                  {toast.message}
+                </div>
+                <button
+                  onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                  className="text-white/60 hover:text-white transition-colors cursor-pointer p-0.5 rounded"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
