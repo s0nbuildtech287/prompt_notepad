@@ -388,6 +388,7 @@ export default function App() {
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [importingToTopicId, setImportingToTopicId] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const chatFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // AI Assistant state
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
@@ -397,11 +398,93 @@ export default function App() {
     {
       id: 'welcome',
       sender: 'ai',
-      text: 'Xin chào xu4ns0n! Tôi là Trợ lý Lên Kế hoạch Gemini. Hãy chat với tôi tại đây để thiết kế lộ trình, sơ đồ milestone hoặc lập kế hoạch cho dự án của bạn nhé!',
+      text: 'Xin chào xu4ns0n! Tôi là Trợ lý Lên Kế hoạch OpenAI. Hãy đính kèm tệp tin và chat với tôi tại đây để thiết kế lộ trình, sơ đồ milestone hoặc thảo luận lập kế hoạch dự án nhé!',
       timestamp: Date.now()
     }
   ]);
   const chatBottomRef = React.useRef<HTMLDivElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      console.log("handleFileUpload: File upload event triggered", e.target.files);
+      if (!activeNote) {
+        alert('Vui lòng chọn một kế hoạch bên Navigator trước khi đính kèm/tải tệp lên!');
+        return;
+      }
+      const files = e.target.files;
+      if (!files || files.length === 0) {
+        console.log("handleFileUpload: No files selected");
+        return;
+      }
+      
+      const totalFiles = files.length;
+      const newNotes: Note[] = [];
+      let processedCount = 0;
+      
+      Array.from(files).forEach(file => {
+        console.log("handleFileUpload: Reading file:", file.name, "size:", file.size);
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          try {
+            const text = event.target?.result as string;
+            console.log("handleFileUpload: Successfully read file content, character count:", text.length);
+            
+            const finalParentId = activeNote.parentNoteId ? activeNote.parentNoteId : activeNote.id;
+            const newFileNote: Note = {
+              id: 'note_file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+              topicId: activeNote.topicId,
+              parentNoteId: finalParentId,
+              title: `📄 ${file.name}`,
+              content: text,
+              updatedAt: Date.now()
+            };
+            
+            newNotes.push(newFileNote);
+            processedCount++;
+            
+            console.log("handleFileUpload: processedCount =", processedCount, "totalFiles =", totalFiles);
+            if (processedCount === totalFiles) {
+              console.log("handleFileUpload: All files processed, updating state", newNotes);
+              setData(prev => {
+                const updatedNotes = [...prev.notes, ...newNotes];
+                const newData = { ...prev, notes: updatedNotes };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+                
+                // Sync to backend API
+                fetch('/api/data', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(newData),
+                })
+                .then(res => console.log("handleFileUpload: Backend sync success", res.status))
+                .catch(err => console.error("handleFileUpload: Backend sync error", err));
+                
+                return newData;
+              });
+              
+              alert(`Đã tải lên thành công ${totalFiles} tệp tài liệu dưới dạng kế hoạch con!`);
+            }
+          } catch (innerErr) {
+            console.error("handleFileUpload: Error processing file data", innerErr);
+            alert('Lỗi xử lý dữ liệu tệp: ' + (innerErr as Error).message);
+          }
+        };
+        
+        reader.onerror = (event) => {
+          console.error("handleFileUpload: FileReader error event", event);
+          alert('Không thể đọc tệp từ hệ thống: ' + event.target?.error?.message);
+        };
+        
+        reader.readAsText(file);
+      });
+    } catch (err) {
+      console.error("handleFileUpload: Top level error catch", err);
+      alert('Lỗi khi tải tệp lên: ' + (err as Error).message);
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   const [aiPanelWidth, setAiPanelWidth] = useState(380);
   const [isResizing, setIsResizing] = useState(false);
@@ -813,22 +896,72 @@ export default function App() {
     setIsAiLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const historyText = updatedMessages
-        .map(msg => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`)
-        .join('\n');
-      
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey || apiKey === 'your_openai_api_key_here') {
+        throw new Error('Khóa API OpenAI chưa được thiết lập. Vui lòng cập nhật OPENAI_API_KEY trong file `.env.local` của bạn.');
+      }
+
       const systemInstruction = `You are a project planning and roadmap expert. Help the user write, refine, or structure a project plan, todo list, or milestone roadmap. Respond in a friendly, conversational manner. Use Markdown for formatting tables, lists, and bold text. Make your plan suggestions detailed, actionable, and structured.`;
 
-      const promptText = `${systemInstruction}\n\nLịch sử trò chuyện:\n${historyText}\nUser: ${userMessageText}\nAssistant:`;
+      // Structure messages list in OpenAI Chat Completions API format
+      const openAiMessages = [
+        { role: 'system', content: systemInstruction }
+      ];
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: promptText,
+      // Feed historical conversation messages (excluding the last user message, since we will attach context to it)
+      chatMessages.forEach(msg => {
+        openAiMessages.push({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        });
       });
 
-      const aiResponseText = response.text || '';
+      // Prepare Context details
+      let contextText = '';
       
+      // 1. Current Active Note Context
+      if (activeNote) {
+        contextText += `[KẾ HOẠCH CON HIỆN TẠI ĐANG CHỌN MỞ]\nTiêu đề: ${activeNote.title}\nNội dung:\n${activeNote.content}\n\n`;
+
+        // 2. Child notes (uploaded files) context of the active note
+        const childNotes = data.notes.filter(n => n.parentNoteId === activeNote.id);
+        if (childNotes.length > 0) {
+          contextText += `[CÁC TỆP TIN ĐÃ TẢI LÊN ĐÍNH KÈM DƯỚI KẾ HOẠCH NÀY]\n`;
+          childNotes.forEach(file => {
+            contextText += `Tên tệp: ${file.title}\nNội dung:\n${file.content}\n---\n`;
+          });
+          contextText += '\n';
+        }
+      }
+
+      // Final user prompt context
+      const finalPromptText = `${contextText}Yêu cầu của tôi: ${userMessageText}`;
+      openAiMessages.push({
+        role: 'user',
+        content: finalPromptText
+      });
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: openAiMessages,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || `HTTP error! Status: ${response.status}`);
+      }
+
+      const resData = await response.json();
+      const aiResponseText = resData.choices?.[0]?.message?.content || '';
+
       const newAiMessage: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'ai',
@@ -842,7 +975,7 @@ export default function App() {
       const errorMessage: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'ai',
-        text: 'Có lỗi xảy ra khi kết nối với Gemini. Vui lòng kiểm tra API Key của bạn trong file `.env.local`.',
+        text: `Có lỗi xảy ra: ${(error as Error).message}`,
         timestamp: Date.now()
       };
       setChatMessages(prev => [...prev, errorMessage]);
@@ -867,10 +1000,16 @@ export default function App() {
   const handleDeleteNote = (id: string) => {
     const newData = {
       ...data,
-      notes: data.notes.filter(n => n.id !== id)
+      notes: data.notes.filter(n => n.id !== id && n.parentNoteId !== id)
     };
     saveData(newData);
-    if (selectedNoteId === id) setSelectedNoteId(null);
+    
+    const wasActiveNoteDeleted = selectedNoteId === id;
+    const wasActiveParentDeleted = data.notes.find(n => n.id === selectedNoteId)?.parentNoteId === id;
+    
+    if (wasActiveNoteDeleted || wasActiveParentDeleted) {
+      setSelectedNoteId(null);
+    }
   };
 
   const handleDeleteTopic = (id: string) => {
@@ -887,7 +1026,7 @@ export default function App() {
 
   const filteredNotesByTopic = (topicId: string) => {
     return data.notes
-      .filter(n => n.topicId === topicId)
+      .filter(n => n.topicId === topicId && !n.parentNoteId)
       .filter(n => 
         n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         n.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1297,72 +1436,115 @@ export default function App() {
                       )}
                       {filteredNotesByTopic(topic.id).map(note => {
                         const isRenaming = renamingNoteId === note.id;
+                        const childNotes = data.notes.filter(n => n.parentNoteId === note.id);
+                        if (childNotes.length > 0) {
+                          console.log("Sidebar: Found childNotes for", note.title, childNotes);
+                        }
                         return (
-                          <div
-                            key={note.id}
-                            className={cn(
-                              "w-full rounded-md text-xs transition-all flex items-center gap-2 group px-3 py-1.5",
-                              selectedNoteId === note.id 
-                                ? "bg-black/5 dark:bg-white/5 text-black dark:text-white font-semibold" 
-                                : "text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-                            )}
-                          >
-                            <FileText className={cn("w-3 h-3 shrink-0", selectedNoteId === note.id ? "text-black dark:text-white" : "text-black/20 dark:text-white/20")} />
-                            
-                            {isRenaming ? (
-                              <input
-                                autoFocus
-                                value={renameNoteTitle}
-                                onChange={e => setRenameNoteTitle(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') handleRenameNote(note.id);
-                                  if (e.key === 'Escape') setRenamingNoteId(null);
-                                }}
-                                onBlur={() => handleRenameNote(note.id)}
-                                className="flex-1 bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 dark:focus:ring-white/20 font-normal text-black dark:text-white"
-                              />
-                            ) : (
-                              <>
-                                <span 
-                                  onClick={() => {
-                                    setSelectedNoteId(note.id);
-                                    setIsEditing(false);
+                          <React.Fragment key={note.id}>
+                            <div
+                              className={cn(
+                                "w-full rounded-md text-xs transition-all flex items-center gap-2 group px-3 py-1.5",
+                                selectedNoteId === note.id 
+                                  ? "bg-black/5 dark:bg-white/5 text-black dark:text-white font-semibold" 
+                                  : "text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                              )}
+                            >
+                              <FileText className={cn("w-3 h-3 shrink-0", selectedNoteId === note.id ? "text-black dark:text-white" : "text-black/20 dark:text-white/20")} />
+                              
+                              {isRenaming ? (
+                                <input
+                                  autoFocus
+                                  value={renameNoteTitle}
+                                  onChange={e => setRenameNoteTitle(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') handleRenameNote(note.id);
+                                    if (e.key === 'Escape') setRenamingNoteId(null);
                                   }}
-                                  onDoubleClick={() => {
-                                    setRenamingNoteId(note.id);
-                                    setRenameNoteTitle(note.title || '');
-                                  }}
-                                  className="flex-1 truncate cursor-pointer py-0.5"
-                                >
-                                  {note.title || 'Untitled'}
-                                </span>
-                                
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                                  onBlur={() => handleRenameNote(note.id)}
+                                  className="flex-1 bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 dark:focus:ring-white/20 font-normal text-black dark:text-white"
+                                />
+                              ) : (
+                                <>
+                                  <span 
+                                    onClick={() => {
+                                      setSelectedNoteId(note.id);
+                                      setIsEditing(false);
+                                    }}
+                                    onDoubleClick={() => {
                                       setRenamingNoteId(note.id);
                                       setRenameNoteTitle(note.title || '');
                                     }}
-                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white cursor-pointer"
-                                    title="Đổi tên"
+                                    className="flex-1 truncate cursor-pointer py-0.5"
                                   >
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteNote(note.id);
-                                    }}
-                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 cursor-pointer"
-                                    title="Xóa kế hoạch"
+                                    {note.title || 'Untitled'}
+                                  </span>
+                                  
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRenamingNoteId(note.id);
+                                        setRenameNoteTitle(note.title || '');
+                                      }}
+                                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white cursor-pointer"
+                                      title="Đổi tên"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteNote(note.id);
+                                      }}
+                                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 cursor-pointer"
+                                      title="Xóa kế hoạch"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Render child notes (uploaded files) indented directly under this note */}
+                            {childNotes.length > 0 && (
+                              <div className="pl-6 space-y-0.5 border-l border-black/5 dark:border-white/5 ml-4 mb-1.5">
+                                {childNotes.map(childNote => (
+                                  <div
+                                    key={childNote.id}
+                                    className={cn(
+                                      "w-full rounded-md text-[11px] transition-all flex items-center gap-2 group px-2 py-1",
+                                      selectedNoteId === childNote.id
+                                        ? "bg-black/5 dark:bg-white/5 text-black dark:text-white font-semibold animate-pulse"
+                                        : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                                    )}
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </>
+                                    <FileText className={cn("w-2.5 h-2.5 shrink-0", selectedNoteId === childNote.id ? "text-emerald-500" : "text-black/20 dark:text-white/20")} />
+                                    <span
+                                      onClick={() => {
+                                        setSelectedNoteId(childNote.id);
+                                        setIsEditing(false);
+                                      }}
+                                      className="flex-1 truncate cursor-pointer py-0.5"
+                                    >
+                                      {childNote.title}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteNote(childNote.id);
+                                      }}
+                                      className="p-0.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/20 dark:text-white/20 hover:text-red-500 dark:hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                      title="Xóa tài liệu"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             )}
-                          </div>
+                          </React.Fragment>
                         );
                       })}
                       {filteredNotesByTopic(topic.id).length === 0 && !namingNoteForTopicId && (
@@ -2259,6 +2441,29 @@ export default function App() {
                   disabled={isAiLoading}
                   className="flex-1 bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-xl px-4 py-2.5 text-xs text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-black/10 dark:focus:border-white/10 focus:ring-1 focus:ring-black/10 dark:focus:ring-white/10 transition-all"
                 />
+                
+                <button
+                  type="button"
+                  onClick={() => chatFileInputRef.current?.click()}
+                  disabled={isAiLoading}
+                  className={cn(
+                    "p-2.5 rounded-xl border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-all flex items-center justify-center shrink-0 cursor-pointer",
+                    isAiLoading && "opacity-40 pointer-events-none"
+                  )}
+                  title="Đính kèm tệp văn bản dưới dạng kế hoạch con (.txt, .md, .json, .csv...)"
+                >
+                  <Upload className="w-4 h-4" />
+                </button>
+                <input
+                  ref={chatFileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={isAiLoading}
+                  onChange={handleFileUpload}
+                  accept=".txt,.md,.json,.csv,.js,.ts,.tsx,.html,.css"
+                />
+
                 <button
                   type="submit"
                   disabled={isAiLoading || !aiPrompt.trim()}

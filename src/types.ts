@@ -7,6 +7,7 @@ export interface Topic {
 export interface Note {
   id: string;
   topicId: string;
+  parentNoteId?: string;
   title: string;
   content: string;
   updatedAt: number;
