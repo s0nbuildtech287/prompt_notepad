@@ -33,6 +33,8 @@ import {
   Palette,
   Smile,
   Quote,
+  Sun,
+  Moon,
   Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -211,6 +213,20 @@ export default function App() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
+  // Theme State & effect
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('prompt_notepad_theme') as 'light' | 'dark') || 'dark';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('prompt_notepad_theme', theme);
+  }, [theme]);
+
   const getBezierPath = (startX: number, startY: number, endX: number, endY: number) => {
     const controlX = startX + (endX - startX) * 0.5;
     return `M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`;
@@ -234,29 +250,29 @@ export default function App() {
     const depth = getNodeDepth(node);
     const styles = [
       {
-        bgClass: "bg-slate-900 border-slate-950 text-white font-bold shadow-md",
-        lineColor: "rgba(15,23,42,0.45)",
-        dotColor: "rgba(15,23,42,0.75)"
+        bgClass: "bg-slate-900 border-slate-950 text-white dark:bg-white dark:border-white/10 dark:text-slate-950 font-bold shadow-md",
+        lineColor: theme === 'dark' ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.45)',
+        dotColor: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)'
       },
       {
-        bgClass: "bg-white border-indigo-500/50 text-indigo-700 font-semibold shadow-sm hover:border-indigo-500",
-        lineColor: "rgba(99,102,241,0.65)",
-        dotColor: "rgba(99,102,241,0.85)"
+        bgClass: "bg-white border-indigo-500/50 text-indigo-700 font-semibold shadow-sm hover:border-indigo-500 dark:bg-slate-900 dark:border-indigo-400/40 dark:text-indigo-400 dark:hover:border-indigo-400",
+        lineColor: theme === 'dark' ? 'rgba(129,140,248,0.65)' : 'rgba(99,102,241,0.65)',
+        dotColor: theme === 'dark' ? 'rgba(129,140,248,0.85)' : 'rgba(99,102,241,0.85)'
       },
       {
-        bgClass: "bg-white border-emerald-500/50 text-emerald-700 font-medium shadow-sm hover:border-emerald-500",
-        lineColor: "rgba(16,185,129,0.65)",
-        dotColor: "rgba(16,185,129,0.85)"
+        bgClass: "bg-white border-emerald-500/50 text-emerald-700 font-medium shadow-sm hover:border-emerald-500 dark:bg-slate-900 dark:border-emerald-400/40 dark:text-emerald-400 dark:hover:border-emerald-400",
+        lineColor: theme === 'dark' ? 'rgba(52,211,153,0.65)' : 'rgba(16,185,129,0.65)',
+        dotColor: theme === 'dark' ? 'rgba(52,211,153,0.85)' : 'rgba(16,185,129,0.85)'
       },
       {
-        bgClass: "bg-white border-amber-500/50 text-amber-700 font-medium shadow-sm hover:border-amber-500",
-        lineColor: "rgba(245,158,11,0.65)",
-        dotColor: "rgba(245,158,11,0.85)"
+        bgClass: "bg-white border-amber-500/50 text-amber-700 font-medium shadow-sm hover:border-amber-500 dark:bg-slate-900 dark:border-amber-400/40 dark:text-amber-400 dark:hover:border-amber-400",
+        lineColor: theme === 'dark' ? 'rgba(251,191,36,0.65)' : 'rgba(245,158,11,0.65)',
+        dotColor: theme === 'dark' ? 'rgba(251,191,36,0.85)' : 'rgba(245,158,11,0.85)'
       },
       {
-        bgClass: "bg-white border-slate-300 text-slate-500 shadow-sm hover:border-slate-500",
-        lineColor: "rgba(148,163,184,0.5)",
-        dotColor: "rgba(148,163,184,0.8)"
+        bgClass: "bg-white border-slate-300 text-slate-500 shadow-sm hover:border-slate-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-500",
+        lineColor: theme === 'dark' ? 'rgba(100,116,139,0.5)' : 'rgba(148,163,184,0.5)',
+        dotColor: theme === 'dark' ? 'rgba(100,116,139,0.8)' : 'rgba(148,163,184,0.8)'
       }
     ];
     return styles[Math.min(depth, styles.length - 1)];
@@ -892,30 +908,30 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#F8F9FA] text-black p-4 relative overflow-hidden">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#F8F9FA] dark:bg-[#020617] text-black dark:text-white p-4 relative overflow-hidden">
         {/* Soft background glows */}
-        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-black/5 blur-[120px] pointer-events-none" />
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-black/5 dark:bg-slate-800/10 blur-[120px] pointer-events-none" />
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="w-full max-w-md bg-white border border-black/5 p-8 rounded-3xl shadow-xl shadow-black/[0.02] flex flex-col gap-6"
+          className="w-full max-w-md bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 p-8 rounded-3xl shadow-xl shadow-black/[0.02] flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-14 h-14 bg-black rounded-2xl flex items-center justify-center shadow-lg shadow-black/10">
-              <NotebookPen className="w-7 h-7 text-white" />
+            <div className="w-14 h-14 bg-black dark:bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-black/10">
+              <NotebookPen className="w-7 h-7 text-white dark:text-black" />
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-black">Make your plan</h2>
-              <p className="text-black/40 text-xs mt-1">Vui lòng đăng nhập để bắt đầu lập kế hoạch</p>
+              <h2 className="text-2xl font-black tracking-tight text-black dark:text-white">Make your plan</h2>
+              <p className="text-black/40 dark:text-white/40 text-xs mt-1">Vui lòng đăng nhập để bắt đầu lập kế hoạch</p>
             </div>
           </div>
-
+ 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-black/40">Tên đăng nhập</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-black/40 dark:text-white/45">Tên đăng nhập</label>
               <div className="relative">
                 <input
                   type="text"
@@ -923,14 +939,14 @@ export default function App() {
                   value={loginUsername}
                   onChange={e => setLoginUsername(e.target.value)}
                   placeholder="Nhập tên đăng nhập..."
-                  className="w-full bg-black/5 border border-transparent rounded-xl pl-10 pr-4 py-3 text-sm text-black placeholder:text-black/20 focus:outline-none focus:bg-white focus:border-black/10 focus:ring-1 focus:ring-black/10 transition-all"
+                  className="w-full bg-black/5 dark:bg-white/5 border border-transparent rounded-xl pl-10 pr-4 py-3 text-sm text-black dark:text-white placeholder:text-black/20 dark:placeholder:text-white/20 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-black/10 dark:focus:border-white/10 focus:ring-1 focus:ring-black/10 dark:focus:ring-white/10 transition-all"
                 />
-                <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+                <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" />
               </div>
             </div>
-
+ 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-black/40">Mật khẩu</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-black/40 dark:text-white/45">Mật khẩu</label>
               <div className="relative">
                 <input
                   type="password"
@@ -938,30 +954,30 @@ export default function App() {
                   value={loginPassword}
                   onChange={e => setLoginPassword(e.target.value)}
                   placeholder="Nhập mật khẩu..."
-                  className="w-full bg-black/5 border border-transparent rounded-xl pl-10 pr-4 py-3 text-sm text-black placeholder:text-black/20 focus:outline-none focus:bg-white focus:border-black/10 focus:ring-1 focus:ring-black/10 transition-all"
+                  className="w-full bg-black/5 dark:bg-white/5 border border-transparent rounded-xl pl-10 pr-4 py-3 text-sm text-black dark:text-white placeholder:text-black/20 dark:placeholder:text-white/20 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-black/10 dark:focus:border-white/10 focus:ring-1 focus:ring-black/10 dark:focus:ring-white/10 transition-all"
                 />
-                <Settings className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+                <Settings className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" />
               </div>
             </div>
-
+ 
             {loginError && (
               <motion.div 
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-red-600 text-xs text-center font-medium bg-red-50 border border-red-100 py-2.5 px-3 rounded-xl"
+                className="text-red-600 dark:text-red-400 text-xs text-center font-medium bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 py-2.5 px-3 rounded-xl"
               >
                 {loginError}
               </motion.div>
             )}
-
+ 
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-black hover:bg-black/90 disabled:bg-black/40 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-black/10 transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full bg-black dark:bg-white hover:bg-black/90 dark:hover:bg-white/90 disabled:bg-black/40 dark:disabled:bg-white/45 text-white dark:text-black py-3 rounded-xl text-sm font-bold shadow-lg shadow-black/10 dark:shadow-white/5 transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
             >
               {isLoggingIn ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white dark:text-black" />
                   Đang xác thực...
                 </>
               ) : (
@@ -996,11 +1012,11 @@ export default function App() {
       />
 
       {/* Activity Bar (Far Left Navigation Bar) */}
-      <nav className="w-16 border-r border-black/5 bg-slate-50 flex flex-col items-center justify-between py-6 shrink-0 z-25 select-none">
+      <nav className="w-16 border-r border-black/5 dark:border-r-white/5 bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-between py-6 shrink-0 z-25 select-none">
         {/* Top Navigation Icons */}
         <div className="flex flex-col items-center gap-4 w-full">
-          <div className="w-9 h-9 bg-black rounded-xl flex items-center justify-center mb-4 shadow-sm">
-            <NotebookPen className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 bg-black dark:bg-white rounded-xl flex items-center justify-center mb-4 shadow-sm">
+            <NotebookPen className="w-5 h-5 text-white dark:text-black" />
           </div>
           
           <button
@@ -1008,8 +1024,8 @@ export default function App() {
             className={cn(
               "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
               activeTab === 'plans' 
-                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
-                : "text-black/40 hover:text-black hover:bg-black/5"
+                ? "bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-sm text-black dark:text-white scale-[1.02]" 
+                : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             )}
             title="Lập kế hoạch & Viết lách"
           >
@@ -1021,10 +1037,10 @@ export default function App() {
             className={cn(
               "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
               activeTab === 'tree' 
-                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
-                : "text-black/40 hover:text-black hover:bg-black/5"
+                ? "bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-sm text-black dark:text-white scale-[1.02]" 
+                : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             )}
-            title="Sơ đồ cây (Phát triển sau)"
+            title="Sơ đồ cây & Mindmap"
           >
             <Network className="w-5 h-5" />
           </button>
@@ -1034,10 +1050,10 @@ export default function App() {
             className={cn(
               "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
               activeTab === 'stats' 
-                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
-                : "text-black/40 hover:text-black hover:bg-black/5"
+                ? "bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-sm text-black dark:text-white scale-[1.02]" 
+                : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             )}
-            title="Thống kê tần suất (Phát triển sau)"
+            title="Thống kê tần suất"
           >
             <BarChart2 className="w-5 h-5" />
           </button>
@@ -1047,8 +1063,8 @@ export default function App() {
             className={cn(
               "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
               isAiPanelOpen 
-                ? "bg-emerald-50 border border-emerald-500/15 shadow-sm text-emerald-600 scale-[1.02]" 
-                : "text-black/40 hover:text-black hover:bg-black/5"
+                ? "bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-500/15 dark:border-emerald-500/30 shadow-sm text-emerald-600 dark:text-emerald-400 scale-[1.02]" 
+                : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             )}
             title="Trợ lý AI"
           >
@@ -1058,6 +1074,19 @@ export default function App() {
 
         {/* Bottom Action Icons */}
         <div className="flex flex-col items-center gap-3 w-full">
+          {/* Dark Mode Switcher */}
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black dark:text-white/40 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+            title={theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}
+          >
+            {theme === 'light' ? (
+              <Moon className="w-4.5 h-4.5" />
+            ) : (
+              <Sun className="w-4.5 h-4.5 text-amber-400" />
+            )}
+          </button>
+
           {/* User Profile Avatar */}
           <div 
             className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm select-none"
@@ -1068,7 +1097,7 @@ export default function App() {
           
           <button 
             onClick={handleExportJSON}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black dark:text-white/40 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
             title="Export JSON"
           >
             <Download className="w-4.5 h-4.5" />
@@ -1076,7 +1105,7 @@ export default function App() {
           
           <button 
             onClick={() => fileInputJsonRef.current?.click()}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black dark:text-white/40 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
             title="Import JSON"
           >
             <Upload className="w-4.5 h-4.5" />
@@ -1084,7 +1113,7 @@ export default function App() {
 
           <button 
             onClick={handleLogout}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500/70 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500/70 hover:text-red-600 hover:bg-red-50 dark:text-red-400/80 dark:hover:text-red-400 dark:hover:bg-red-950/30 transition-all cursor-pointer"
             title="Đăng xuất"
           >
             <LogOut className="w-4.5 h-4.5" />
@@ -1094,29 +1123,29 @@ export default function App() {
 
       {/* Sidebar - Topics & Notes Accordion */}
       {activeTab === 'plans' && (
-        <aside className="w-72 border-r border-black/5 bg-white flex flex-col">
+        <aside className="w-72 border-r border-black/5 dark:border-r-white/5 bg-white dark:bg-slate-950 flex flex-col">
           <div className="p-6">
-            <h1 className="font-bold text-lg tracking-tight">Make your plan</h1>
+            <h1 className="font-bold text-lg tracking-tight text-black dark:text-white">Make your plan</h1>
           </div>
 
           <div className="px-4 mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" />
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-full bg-black/5 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-black/5 focus:outline-none"
+                className="w-full bg-black/5 dark:bg-white/5 border-none rounded-xl pl-10 pr-4 py-2 text-sm text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30 focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:outline-none"
               />
             </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 space-y-1">
             <div className="pb-4 px-3 flex items-center justify-between">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-black">Dự án</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-black dark:text-white/80">Dự án</p>
               <button 
                 onClick={() => setShowNewTopicInput(true)}
-                className="p-1 hover:bg-black/5 rounded-md text-black/40 hover:text-black transition-colors"
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors"
                 title="Dự án mới"
               >
                 <Plus className="w-4 h-4" />
@@ -1124,7 +1153,7 @@ export default function App() {
             </div>
 
             {showNewTopicInput && (
-              <div className="px-3 py-4 space-y-2 bg-black/5 rounded-xl mb-4">
+              <div className="px-3 py-4 space-y-2 bg-black/5 dark:bg-white/5 rounded-xl mb-4">
                 <input
                   autoFocus
                   value={newTopicName}
@@ -1134,11 +1163,11 @@ export default function App() {
                     if (e.key === 'Escape') setShowNewTopicInput(false);
                   }}
                   placeholder="Tên dự án..."
-                  className="w-full bg-white border border-black/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                  className="w-full bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5"
                 />
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => setShowNewTopicInput(false)} className="px-3 py-1 text-[10px] font-bold uppercase text-black/40">Hủy</button>
-                  <button onClick={handleCreateTopic} className="px-3 py-1 bg-black text-white rounded-md text-[10px] font-bold uppercase">Thêm</button>
+                  <button onClick={() => setShowNewTopicInput(false)} className="px-3 py-1 text-[10px] font-bold uppercase text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white">Hủy</button>
+                  <button onClick={handleCreateTopic} className="px-3 py-1 bg-black dark:bg-white text-white dark:text-black rounded-md text-[10px] font-bold uppercase hover:bg-black/90 dark:hover:bg-white/90">Thêm</button>
                 </div>
               </div>
             )}
@@ -1147,8 +1176,8 @@ export default function App() {
               <div key={topic.id} className="space-y-1">
                 <div className="group relative flex items-center">
                   {renamingTopicId === topic.id ? (
-                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg">
-                      <ChevronRight className="w-4 h-4 text-black/20 shrink-0" />
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-black/5 dark:bg-white/5 rounded-lg">
+                      <ChevronRight className="w-4 h-4 text-black/20 dark:text-white/25 shrink-0" />
                       <input
                         autoFocus
                         value={renameTopicName}
@@ -1158,7 +1187,7 @@ export default function App() {
                           if (e.key === 'Escape') setRenamingTopicId(null);
                         }}
                         onBlur={() => handleRenameTopic(topic.id)}
-                        className="flex-1 bg-white border border-black/10 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 font-normal text-black"
+                        className="flex-1 bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 dark:focus:ring-white/20 font-normal text-black dark:text-white"
                       />
                     </div>
                   ) : (
@@ -1166,20 +1195,20 @@ export default function App() {
                       <button
                         onClick={() => toggleTopic(topic.id)}
                         className={cn(
-                          "flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-black/5",
-                          expandedTopics[topic.id] ? "text-black" : "text-black/60"
+                          "flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-black/5 dark:hover:bg-white/5",
+                          expandedTopics[topic.id] ? "text-black dark:text-white" : "text-black/60 dark:text-white/50"
                         )}
                       >
                         <motion.div
                           animate={{ rotate: expandedTopics[topic.id] ? 90 : 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <ChevronRight className="w-4 h-4 text-black/20" />
+                          <ChevronRight className="w-4 h-4 text-black/20 dark:text-white/20" />
                         </motion.div>
                         <div 
                           className={cn(
                             "w-2 h-2 rounded-full transition-colors duration-300",
-                            activeNote?.topicId === topic.id ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-black/10"
+                            activeNote?.topicId === topic.id ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-black/10 dark:bg-white/15"
                           )} 
                         />
                         <span 
@@ -1201,7 +1230,7 @@ export default function App() {
                             setNamingNoteForTopicId(topic.id);
                             setExpandedTopics(prev => ({ ...prev, [topic.id]: true }));
                           }}
-                          className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                           title="Thêm kế hoạch"
                         >
                           <Plus className="w-4 h-4" />
@@ -1212,7 +1241,7 @@ export default function App() {
                             setRenamingTopicId(topic.id);
                             setRenameTopicName(topic.name);
                           }}
-                          className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                           title="Đổi tên dự án"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -1223,14 +1252,14 @@ export default function App() {
                             setImportingToTopicId(topic.id);
                             fileInputRef.current?.click();
                           }}
-                          className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                           title="Nhập .txt"
                         >
                           <Upload className="w-3.5 h-3.5" />
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }}
-                          className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-red-500"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400"
                           title="Xóa dự án"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1262,7 +1291,7 @@ export default function App() {
                               if (!newNoteTitle.trim()) setNamingNoteForTopicId(null);
                             }}
                             placeholder="Tiêu đề kế hoạch..."
-                            className="w-full bg-black/5 border border-black/10 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black/20"
+                            className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded px-2 py-1 text-xs text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-black/20 dark:focus:ring-white/20"
                           />
                         </div>
                       )}
@@ -1274,11 +1303,11 @@ export default function App() {
                             className={cn(
                               "w-full rounded-md text-xs transition-all flex items-center gap-2 group px-3 py-1.5",
                               selectedNoteId === note.id 
-                                ? "bg-black/5 text-black font-semibold" 
-                                : "text-black/50 hover:text-black hover:bg-black/5"
+                                ? "bg-black/5 dark:bg-white/5 text-black dark:text-white font-semibold" 
+                                : "text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                             )}
                           >
-                            <FileText className={cn("w-3 h-3 shrink-0", selectedNoteId === note.id ? "text-black" : "text-black/20")} />
+                            <FileText className={cn("w-3 h-3 shrink-0", selectedNoteId === note.id ? "text-black dark:text-white" : "text-black/20 dark:text-white/20")} />
                             
                             {isRenaming ? (
                               <input
@@ -1290,7 +1319,7 @@ export default function App() {
                                   if (e.key === 'Escape') setRenamingNoteId(null);
                                 }}
                                 onBlur={() => handleRenameNote(note.id)}
-                                className="flex-1 bg-white border border-black/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 font-normal text-black"
+                                className="flex-1 bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-black/20 dark:focus:ring-white/20 font-normal text-black dark:text-white"
                               />
                             ) : (
                               <>
@@ -1315,7 +1344,7 @@ export default function App() {
                                       setRenamingNoteId(note.id);
                                       setRenameNoteTitle(note.title || '');
                                     }}
-                                    className="p-1 hover:bg-black/5 rounded text-black/30 hover:text-black cursor-pointer"
+                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white cursor-pointer"
                                     title="Đổi tên"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
@@ -1325,7 +1354,7 @@ export default function App() {
                                       e.stopPropagation();
                                       handleDeleteNote(note.id);
                                     }}
-                                    className="p-1 hover:bg-black/5 rounded text-black/30 hover:text-red-500 cursor-pointer"
+                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/30 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 cursor-pointer"
                                     title="Xóa kế hoạch"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -1337,7 +1366,7 @@ export default function App() {
                         );
                       })}
                       {filteredNotesByTopic(topic.id).length === 0 && !namingNoteForTopicId && (
-                        <p className="text-[10px] text-black/20 py-2 italic">Chưa có kế hoạch nào</p>
+                        <p className="text-[10px] text-black/20 dark:text-white/30 py-2 italic">Chưa có kế hoạch nào</p>
                       )}
                     </motion.div>
                   )}
@@ -1349,31 +1378,33 @@ export default function App() {
       )}
 
       {/* Editor / Preview */}
-      <main className="flex-1 bg-white flex flex-col overflow-hidden">
+      <main className="flex-1 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
         {activeTab === 'plans' && (
           activeNote ? (
             <>
-              <header className="h-16 border-b border-black/5 flex items-center justify-between px-8 shrink-0">
+              <header className="h-16 border-b border-black/5 dark:border-b-white/5 flex items-center justify-between px-8 shrink-0">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
                     />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-black/40">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-black/40 dark:text-white/45">
                       {data.topics.find(t => t.id === activeNote.topicId)?.name || 'Chung'}
                     </span>
                   </div>
-                  <div className="h-4 w-[1px] bg-black/5" />
-                  <h2 className="text-sm font-bold truncate max-w-md">{activeNote.title}</h2>
+                  <div className="h-4 w-[1px] bg-black/5 dark:bg-white/10" />
+                  <h2 className="text-sm font-bold truncate max-w-md text-black dark:text-white">{activeNote.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {isEditing && (
-                    <div className="flex bg-black/5 p-1 rounded-xl mr-2">
+                    <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-xl mr-2">
                       <button
                         onClick={() => setEditorViewMode('edit')}
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'edit' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                          editorViewMode === 'edit' 
+                            ? "bg-white dark:bg-slate-800 text-black dark:text-white shadow-sm" 
+                            : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                         )}
                       >
                         Viết
@@ -1382,7 +1413,9 @@ export default function App() {
                         onClick={() => setEditorViewMode('preview')}
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'preview' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                          editorViewMode === 'preview' 
+                            ? "bg-white dark:bg-slate-800 text-black dark:text-white shadow-sm" 
+                            : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                         )}
                       >
                         Xem trước
@@ -1391,7 +1424,9 @@ export default function App() {
                         onClick={() => setEditorViewMode('split')}
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-                          editorViewMode === 'split' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                          editorViewMode === 'split' 
+                            ? "bg-white dark:bg-slate-800 text-black dark:text-white shadow-sm" 
+                            : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
                         )}
                       >
                         Song song
@@ -1405,7 +1440,9 @@ export default function App() {
                         onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
                         className={cn(
                           "p-2 rounded-lg transition-all cursor-pointer",
-                          isAiPanelOpen ? "bg-black text-white" : "hover:bg-black/5 text-black/40 hover:text-black"
+                          isAiPanelOpen 
+                            ? "bg-black dark:bg-white text-white dark:text-black" 
+                            : "hover:bg-black/5 dark:hover:bg-white/5 text-black/40 dark:text-white/45 hover:text-black dark:hover:text-white"
                         )}
                         title="Trợ lý AI"
                       >
@@ -1413,7 +1450,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={handleDownload}
-                        className="p-2 hover:bg-black/5 rounded-lg text-black/40 hover:text-black transition-all cursor-pointer"
+                        className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-black/40 dark:text-white/45 hover:text-black dark:hover:text-white transition-all cursor-pointer"
                         title="Tải về file .txt"
                       >
                         <Download className="w-4 h-4" />
@@ -1424,13 +1461,13 @@ export default function App() {
                     <>
                       <button
                         onClick={() => setIsEditing(false)}
-                        className="px-4 py-2 text-sm font-medium text-black/60 hover:text-black transition-colors cursor-pointer"
+                        className="px-4 py-2 text-sm font-medium text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleUpdateNote}
-                        className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+                        className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-black/10 dark:shadow-white/5 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
                       >
                         <Save className="w-4 h-4" />
                         Save
@@ -1442,7 +1479,7 @@ export default function App() {
                         setIsEditing(true);
                         setEditNote(activeNote);
                       }}
-                      className="flex items-center gap-2 border border-black/10 px-4 py-2 rounded-lg text-sm font-bold hover:bg-black/5 transition-all cursor-pointer"
+                      className="flex items-center gap-2 border border-black/10 dark:border-white/10 px-4 py-2 rounded-lg text-sm font-bold text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
                     >
                       <Edit3 className="w-4 h-4" />
                       Edit
@@ -1455,26 +1492,26 @@ export default function App() {
                 {isEditing ? (
                   <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Format Toolbar */}
-                    <div className="flex flex-wrap items-center gap-1.5 px-6 py-3 border-b border-black/5 bg-[#F8F9FA] overflow-visible select-none shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 px-6 py-3 border-b border-black/5 dark:border-b-white/5 bg-[#F8F9FA] dark:bg-slate-900 overflow-visible select-none shrink-0">
                       {/* Heading Selector */}
-                      <div className="flex items-center gap-0.5 border-r border-black/5 pr-2">
+                      <div className="flex items-center gap-0.5 border-r border-black/5 dark:border-r-white/5 pr-2">
                         <button
                           onClick={() => insertTextAtCursor('# ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-[10px] font-black cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-[10px] font-black cursor-pointer"
                           title="Tiêu đề 1"
                         >
                           H1
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('## ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-[10px] font-black cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-[10px] font-black cursor-pointer"
                           title="Tiêu đề 2"
                         >
                           H2
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('### ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-[10px] font-black cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-[10px] font-black cursor-pointer"
                           title="Tiêu đề 3"
                         >
                           H3
@@ -1482,38 +1519,38 @@ export default function App() {
                       </div>
 
                       {/* Text styles */}
-                      <div className="flex items-center gap-0.5 border-r border-black/5 pr-2">
+                      <div className="flex items-center gap-0.5 border-r border-black/5 dark:border-r-white/5 pr-2">
                         <button
                           onClick={() => insertTextAtCursor('**', '**')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="In đậm"
                         >
                           <Bold className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('*', '*')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="In nghiêng"
                         >
                           <Italic className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('<u>', '</u>')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-xs font-bold underline cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-xs font-bold underline cursor-pointer"
                           title="Gạch chân"
                         >
                           U
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('~~', '~~')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-xs font-bold line-through cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-xs font-bold line-through cursor-pointer"
                           title="Gạch ngang"
                         >
                           S
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('`', '`')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-[10px] font-mono bg-black/5 px-1 cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-[10px] font-mono bg-black/5 dark:bg-white/5 px-1 cursor-pointer"
                           title="Code inline"
                         >
                           &lt;&gt;
@@ -1521,31 +1558,31 @@ export default function App() {
                       </div>
 
                       {/* Lists */}
-                      <div className="flex items-center gap-0.5 border-r border-black/5 pr-2">
+                      <div className="flex items-center gap-0.5 border-r border-black/5 dark:border-r-white/5 pr-2">
                         <button
                           onClick={() => insertTextAtCursor('- ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Danh sách gạch đầu dòng (Dashes)"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('* ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Danh sách chấm tròn (Bullet)"
                         >
                           <List className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('1. ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Danh sách đánh số"
                         >
                           <ListOrdered className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('- [ ] ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Danh sách công việc"
                         >
                           <CheckSquare className="w-4 h-4" />
@@ -1553,15 +1590,15 @@ export default function App() {
                       </div>
 
                       {/* Colors Dropdown */}
-                      <div className="flex items-center gap-0.5 border-r border-black/5 pr-2 relative popover-container">
+                      <div className="flex items-center gap-0.5 border-r border-black/5 dark:border-r-white/5 pr-2 relative popover-container">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setActivePopover(activePopover === 'color' ? null : 'color');
                           }}
                           className={cn(
-                            "p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors flex items-center gap-1 cursor-pointer",
-                            activePopover === 'color' ? "bg-black/5 text-black" : ""
+                            "p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer",
+                            activePopover === 'color' ? "bg-black/5 dark:bg-white/5 text-black dark:text-white" : ""
                           )}
                           title="Màu chữ"
                           type="button"
@@ -1569,7 +1606,7 @@ export default function App() {
                           <Palette className="w-4 h-4" />
                         </button>
                         {activePopover === 'color' && (
-                          <div className="absolute top-full left-0 mt-1.5 bg-white border border-black/10 rounded-xl p-2 shadow-xl flex gap-1.5 z-40">
+                          <div className="absolute top-full left-0 mt-1.5 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-xl p-2 shadow-xl flex gap-1.5 z-40">
                             {[
                               { name: 'Đen', color: '#000000' },
                               { name: 'Đỏ', color: '#EF4444' },
@@ -1585,7 +1622,7 @@ export default function App() {
                                   insertTextAtCursor(`<span style="color: ${item.color}">`, '</span>');
                                   setActivePopover(null);
                                 }}
-                                className="w-5 h-5 rounded-full border border-black/10 cursor-pointer hover:scale-110 transition-transform"
+                                className="w-5 h-5 rounded-full border border-black/10 dark:border-white/15 cursor-pointer hover:scale-110 transition-transform"
                                 style={{ backgroundColor: item.color }}
                                 title={item.name}
                                 type="button"
@@ -1596,15 +1633,15 @@ export default function App() {
                       </div>
 
                       {/* Emojis Group */}
-                      <div className="flex items-center gap-0.5 border-r border-black/5 pr-2 relative popover-container">
+                      <div className="flex items-center gap-0.5 border-r border-black/5 dark:border-r-white/5 pr-2 relative popover-container">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setActivePopover(activePopover === 'emoji' ? null : 'emoji');
                           }}
                           className={cn(
-                            "p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer",
-                            activePopover === 'emoji' ? "bg-black/5 text-black" : ""
+                            "p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer",
+                            activePopover === 'emoji' ? "bg-black/5 dark:bg-white/5 text-black dark:text-white" : ""
                           )}
                           title="Biểu tượng cảm xúc (Emojis)"
                           type="button"
@@ -1612,7 +1649,7 @@ export default function App() {
                           <Smile className="w-4 h-4" />
                         </button>
                         {activePopover === 'emoji' && (
-                          <div className="absolute top-full left-0 mt-1.5 bg-white border border-black/10 rounded-xl p-2 shadow-xl grid grid-cols-4 gap-1.5 z-40 w-36">
+                          <div className="absolute top-full left-0 mt-1.5 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-xl p-2 shadow-xl grid grid-cols-4 gap-1.5 z-40 w-36">
                             {['🚀', '💡', '✅', '📌', '📅', '🎯', '📝', '❌', '👍', '🌟', '🔥', '❤️'].map(emoji => (
                               <button
                                 key={emoji}
@@ -1620,7 +1657,7 @@ export default function App() {
                                   insertTextAtCursor(emoji, '');
                                   setActivePopover(null);
                                 }}
-                                className="p-1 hover:bg-black/5 rounded text-base cursor-pointer text-center"
+                                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-base cursor-pointer text-center text-black dark:text-white"
                                 title={emoji}
                                 type="button"
                               >
@@ -1635,21 +1672,21 @@ export default function App() {
                       <div className="flex items-center gap-0.5">
                         <button
                           onClick={() => insertTextAtCursor('> ', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Trích dẫn"
                         >
                           <Quote className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('[Tên liên kết](', ')')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                           title="Chèn liên kết"
                         >
                           <LinkIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => insertTextAtCursor('\n---\n', '')}
-                          className="p-1.5 hover:bg-black/5 rounded text-black/50 hover:text-black transition-colors text-xs font-bold cursor-pointer"
+                          className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-xs font-bold cursor-pointer"
                           title="Đường phân cách ngang"
                         >
                           HR
@@ -1658,11 +1695,11 @@ export default function App() {
                     </div>
 
                     {/* Editor Content Area */}
-                    <div className="flex-1 flex overflow-hidden bg-white">
+                    <div className="flex-1 flex overflow-hidden bg-white dark:bg-slate-900">
                       {(editorViewMode === 'edit' || editorViewMode === 'split') && (
                         <div className={cn(
                           "h-full p-8 overflow-y-auto flex flex-col",
-                          editorViewMode === 'split' ? "w-1/2 border-r border-black/5" : "w-full"
+                          editorViewMode === 'split' ? "w-1/2 border-r border-black/5 dark:border-r-white/5" : "w-full"
                         )}>
                           <textarea
                             ref={textareaRef}
@@ -1670,7 +1707,7 @@ export default function App() {
                             value={editNote.content}
                             onChange={e => setEditNote({ ...editNote, content: e.target.value })}
                             placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
-                            className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono focus:bg-transparent"
+                            className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none text-black dark:text-white placeholder:text-black/10 dark:placeholder:text-white/20 font-mono bg-transparent"
                           />
                         </div>
                       )}
@@ -1678,7 +1715,7 @@ export default function App() {
                       {(editorViewMode === 'preview' || editorViewMode === 'split') && (
                         <div className={cn(
                           "h-full p-8 overflow-y-auto",
-                          editorViewMode === 'split' ? "w-1/2 bg-[#F8F9FA]/40" : "w-full"
+                          editorViewMode === 'split' ? "w-1/2 bg-[#F8F9FA]/40 dark:bg-slate-950/20" : "w-full"
                         )}>
                           <div className="markdown-body">
                             <Markdown remarkPlugins={[remarkGfm, remarkListBullet]} rehypePlugins={[rehypeRaw]}>
@@ -1718,11 +1755,11 @@ export default function App() {
                       </div>
                       {activeNote.content === '' && (
                         <div className="flex flex-col items-center py-12 px-6">
-                          <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center mb-6">
-                            <FileText className="w-8 h-8 text-black/30" />
+                          <div className="w-16 h-16 bg-black/5 dark:bg-white/5 rounded-2xl flex items-center justify-center mb-6">
+                            <FileText className="w-8 h-8 text-black/30 dark:text-white/30" />
                           </div>
-                          <h3 className="text-xl font-bold text-black mb-2">Kế hoạch này đang trống</h3>
-                          <p className="text-sm text-black/40 text-center max-w-md mb-10">
+                          <h3 className="text-xl font-bold text-black dark:text-white mb-2">Kế hoạch này đang trống</h3>
+                          <p className="text-sm text-black/40 dark:text-white/40 text-center max-w-md mb-10">
                             Bắt đầu viết kế hoạch bằng cách tự viết từ đầu hoặc chọn một mẫu khung sườn chuyên nghiệp dưới đây:
                           </p>
                           
@@ -1733,13 +1770,13 @@ export default function App() {
                                 <button
                                   key={tpl.id}
                                   onClick={() => handleApplyTemplate(activeNote.id, tpl.content)}
-                                  className="group border border-black/5 hover:border-black/15 bg-[#F8F9FA]/40 hover:bg-white rounded-2xl p-6 text-left transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer flex flex-col items-start"
+                                  className="group border border-black/5 dark:border-white/5 hover:border-black/15 dark:hover:border-white/15 bg-[#F8F9FA]/40 dark:bg-slate-950/20 hover:bg-white dark:hover:bg-slate-900 rounded-2xl p-6 text-left transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer flex flex-col items-start"
                                 >
-                                  <div className="w-10 h-10 rounded-xl bg-black/5 group-hover:bg-black group-hover:text-white flex items-center justify-center text-black/55 mb-4 transition-colors shrink-0">
+                                  <div className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/5 group-hover:bg-black dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-black flex items-center justify-center text-black/55 dark:text-white/55 mb-4 transition-colors shrink-0">
                                     <IconComponent className="w-5 h-5" />
                                   </div>
-                                  <h4 className="font-bold text-sm text-black mb-1">{tpl.title}</h4>
-                                  <p className="text-xs text-black/40 leading-relaxed">{tpl.description}</p>
+                                  <h4 className="font-bold text-sm text-black dark:text-white mb-1">{tpl.title}</h4>
+                                  <p className="text-xs text-black/40 dark:text-white/45 leading-relaxed">{tpl.description}</p>
                                 </button>
                               );
                             })}
@@ -1750,7 +1787,7 @@ export default function App() {
                               setIsEditing(true);
                               setEditNote(activeNote);
                             }}
-                            className="px-6 py-2.5 bg-black hover:scale-[1.02] active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-lg shadow-black/5 transition-all cursor-pointer"
+                            className="px-6 py-2.5 bg-black dark:bg-white hover:scale-[1.02] active:scale-[0.98] text-white dark:text-black rounded-xl text-xs font-bold shadow-lg shadow-black/5 dark:shadow-white/5 transition-all cursor-pointer"
                           >
                             Tự viết từ đầu (Khung trống)
                           </button>
@@ -1763,11 +1800,11 @@ export default function App() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-24 h-24 bg-black/5 rounded-3xl flex items-center justify-center mb-8">
-                <FileText className="w-10 h-10 text-black/20" />
+              <div className="w-24 h-24 bg-black/5 dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8">
+                <FileText className="w-10 h-10 text-black/20 dark:text-white/20" />
               </div>
-              <h2 className="text-2xl font-bold mb-2">Chọn một kế hoạch để xem</h2>
-              <p className="text-black/40 max-w-xs">
+              <h2 className="text-2xl font-bold mb-2 text-black dark:text-white">Chọn một kế hoạch để xem</h2>
+              <p className="text-black/40 dark:text-white/40 max-w-xs">
                 Chọn một kế hoạch từ thanh bên hoặc tạo mới để bắt đầu.
               </p>
             </div>
@@ -1775,21 +1812,21 @@ export default function App() {
         )}
 
         {activeTab === 'tree' && (
-          <div className="flex-1 flex flex-col overflow-hidden relative select-none bg-[#F8F9FA]">
+          <div className="flex-1 flex flex-col overflow-hidden relative select-none bg-[#F8F9FA] dark:bg-[#0B0F19]">
             {/* Header bar */}
-            <div className="h-16 border-b border-black/5 bg-white flex items-center justify-between px-8 shrink-0 relative z-20">
+            <div className="h-16 border-b border-black/5 dark:border-b-white/5 bg-white dark:bg-slate-900 flex items-center justify-between px-8 shrink-0 relative z-20">
               <div>
-                <h2 className="text-sm font-bold text-black flex items-center gap-2">
-                  <Network className="w-4 h-4 text-black/50" />
+                <h2 className="text-sm font-bold text-black dark:text-white flex items-center gap-2">
+                  <Network className="w-4 h-4 text-black/50 dark:text-white/50" />
                   Sơ đồ cây & Mindmap tương tác
                 </h2>
-                <p className="text-[10px] text-black/40">Kéo thả tự do, tạo nhánh chính/phụ và đồng bộ hóa tiến độ</p>
+                <p className="text-[10px] text-black/40 dark:text-white/45">Kéo thả tự do, tạo nhánh chính/phụ và đồng bộ hóa tiến độ</p>
               </div>
               
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSyncFromProject}
-                  className="px-3.5 py-1.5 border border-black/5 hover:border-black/15 bg-white rounded-xl text-xs font-bold text-black/75 cursor-pointer hover:bg-black/5 transition-all flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 border border-black/5 dark:border-white/5 hover:border-black/15 dark:hover:border-white/15 bg-white dark:bg-slate-900 rounded-xl text-xs font-bold text-black/75 dark:text-white/75 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-1.5"
                   title="Tự động đồng bộ sơ đồ từ danh sách dự án bên trái"
                 >
                   <Network className="w-3.5 h-3.5 text-emerald-500" />
@@ -1798,7 +1835,7 @@ export default function App() {
                 
                 <button
                   onClick={handleAddRootNode}
-                  className="px-3.5 py-1.5 bg-black hover:scale-[1.02] active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                  className="px-3.5 py-1.5 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Thêm nhánh chính
@@ -1811,7 +1848,7 @@ export default function App() {
                         setMindmapNodes([]);
                       }
                     }}
-                    className="p-1.5 hover:bg-red-50 text-black/40 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/20 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors cursor-pointer"
                     title="Xóa toàn bộ sơ đồ"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1863,7 +1900,7 @@ export default function App() {
             >
               {/* Dot grid background */}
               <div 
-                className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none transition-all duration-75"
+                className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#334155_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none transition-all duration-75"
                 style={{ 
                   backgroundPosition: `${panOffset.x}px ${panOffset.y}px`
                 }}
@@ -1979,13 +2016,13 @@ export default function App() {
                       )}
 
                       {!isNodeRenaming && (
-                        <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white border border-black/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
+                        <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAddSubNode(node.id);
                             }}
-                            className="p-1 hover:bg-emerald-50 rounded text-emerald-600 cursor-pointer"
+                            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded text-emerald-600 dark:text-emerald-400 cursor-pointer"
                             title="Thêm nhánh con"
                           >
                             <Plus className="w-3.5 h-3.5" />
@@ -1996,7 +2033,7 @@ export default function App() {
                               setRenamingMNodeId(node.id);
                               setRenameMNodeText(node.text);
                             }}
-                            className="p-1 hover:bg-black/5 rounded text-black/50 hover:text-black cursor-pointer"
+                            className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer"
                             title="Đổi tên"
                           >
                             <Edit3 className="w-3 h-3" />
@@ -2006,7 +2043,7 @@ export default function App() {
                               e.stopPropagation();
                               handleDeleteMNode(node.id);
                             }}
-                            className="p-1 hover:bg-red-50 rounded text-red-500 cursor-pointer"
+                            className="p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-red-500 cursor-pointer"
                             title="Xóa nhánh"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -2021,18 +2058,18 @@ export default function App() {
               {/* Instructions / Empty state overlay */}
               {mindmapNodes.length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 pointer-events-none">
-                  <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center mb-6">
-                    <Network className="w-8 h-8 text-black/30" />
+                  <div className="w-16 h-16 bg-black/5 dark:bg-white/5 rounded-2xl flex items-center justify-center mb-6">
+                    <Network className="w-8 h-8 text-black/30 dark:text-white/30" />
                   </div>
-                  <h3 className="text-base font-bold text-black mb-1">Mindmap của bạn đang trống</h3>
-                  <p className="text-xs text-black/40 max-w-sm mb-6 leading-relaxed">
+                  <h3 className="text-base font-bold text-black dark:text-white mb-1">Mindmap của bạn đang trống</h3>
+                  <p className="text-xs text-black/40 dark:text-white/40 max-w-sm mb-6 leading-relaxed">
                     Bạn có thể tự tạo nhánh chính hoặc đồng bộ hóa trực tiếp từ cấu trúc Dự án & Kế hoạch bên cột trái.
                   </p>
                   
                   <div className="flex gap-3 pointer-events-auto">
                     <button
                       onClick={handleSyncFromProject}
-                      className="px-4 py-2 border border-black/10 hover:border-black/20 bg-white rounded-xl text-xs font-bold text-black/70 transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-4 py-2 border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 bg-white dark:bg-slate-900 text-black/70 dark:text-white/70 transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <Network className="w-3.5 h-3.5 text-emerald-500" />
                       Đồng bộ từ Dự án
@@ -2040,7 +2077,7 @@ export default function App() {
                     
                     <button
                       onClick={handleAddRootNode}
-                      className="px-4 py-2 bg-black hover:scale-[1.02] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Thêm nhánh chính
@@ -2053,34 +2090,34 @@ export default function App() {
         )}
 
         {activeTab === 'stats' && (
-          <div className="flex-1 flex flex-col p-12 overflow-y-auto">
+          <div className="flex-1 flex flex-col p-12 overflow-y-auto bg-white dark:bg-slate-900">
             <div className="max-w-4xl mx-auto w-full space-y-8">
               <div>
-                <h2 className="text-2xl font-black text-black">Thống kê tần suất</h2>
-                <p className="text-black/40 text-sm mt-1">Theo dõi mức độ hoạt động và tiến độ kế hoạch của bạn</p>
+                <h2 className="text-2xl font-black text-black dark:text-white">Thống kê tần suất</h2>
+                <p className="text-black/40 dark:text-white/45 text-sm mt-1">Theo dõi mức độ hoạt động và tiến độ kế hoạch của bạn</p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
-                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số dự án</span>
-                  <p className="text-3xl font-black text-black mt-2">{data.topics.length}</p>
+                <div className="bg-[#F8F9FA] dark:bg-slate-950 border border-black/5 dark:border-white/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 dark:text-white/40 font-bold uppercase tracking-wider">Tổng số dự án</span>
+                  <p className="text-3xl font-black text-black dark:text-white mt-2">{data.topics.length}</p>
                 </div>
-                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
-                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số kế hoạch</span>
-                  <p className="text-3xl font-black text-black mt-2">{data.notes.length}</p>
+                <div className="bg-[#F8F9FA] dark:bg-slate-950 border border-black/5 dark:border-white/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 dark:text-white/40 font-bold uppercase tracking-wider">Tổng số kế hoạch</span>
+                  <p className="text-3xl font-black text-black dark:text-white mt-2">{data.notes.length}</p>
                 </div>
-                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
-                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số sơ đồ</span>
-                  <p className="text-3xl font-black text-black mt-2">{mindmapNodes.length}</p>
+                <div className="bg-[#F8F9FA] dark:bg-slate-950 border border-black/5 dark:border-white/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 dark:text-white/40 font-bold uppercase tracking-wider">Tổng số sơ đồ</span>
+                  <p className="text-3xl font-black text-black dark:text-white mt-2">{mindmapNodes.length}</p>
                 </div>
               </div>
 
-              <div className="bg-[#F8F9FA] border border-black/5 rounded-3xl p-8 space-y-6 relative overflow-hidden">
-                <h3 className="font-bold text-sm text-black">Tần suất lập kế hoạch (30 ngày qua)</h3>
+              <div className="bg-[#F8F9FA] dark:bg-slate-950 border border-black/5 dark:border-white/5 rounded-3xl p-8 space-y-6 relative overflow-hidden">
+                <h3 className="font-bold text-sm text-black dark:text-white">Tần suất lập kế hoạch (30 ngày qua)</h3>
                 
                 <div className="flex flex-wrap gap-1.5 justify-start">
                   {Array.from({ length: 30 }).map((_, i) => {
-                    const intensity = i % 7 === 0 ? "bg-emerald-500" : i % 5 === 0 ? "bg-emerald-300" : i % 3 === 0 ? "bg-emerald-100" : "bg-black/5";
+                    const intensity = i % 7 === 0 ? "bg-emerald-500" : i % 5 === 0 ? "bg-emerald-300 dark:bg-emerald-600" : i % 3 === 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-black/5 dark:bg-white/5";
                     return (
                       <div 
                         key={i} 
@@ -2125,7 +2162,7 @@ export default function App() {
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: isResizing ? 0 : 0.3, ease: "easeInOut" }}
             style={{ width: aiPanelWidth }}
-            className="border-l border-black/5 bg-[#F8F9FA] flex flex-col h-full overflow-hidden shrink-0 relative"
+            className="border-l border-black/5 dark:border-l-white/5 bg-[#F8F9FA] dark:bg-slate-950 flex flex-col h-full overflow-hidden shrink-0 relative"
           >
             {/* Drag Handle */}
             <div 
@@ -2137,14 +2174,14 @@ export default function App() {
               style={{ userSelect: 'none' }}
             />
             {/* Chat Header */}
-            <div className="h-16 border-b border-black/5 flex items-center justify-between px-6 bg-white shrink-0">
+            <div className="h-16 border-b border-black/5 dark:border-b-white/5 flex items-center justify-between px-6 bg-white dark:bg-slate-900 shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
-                <span className="font-bold text-sm text-black">Trợ lý Lên Kế hoạch</span>
+                <span className="font-bold text-sm text-black dark:text-white">Trợ lý Lên Kế hoạch</span>
               </div>
               <button 
                 onClick={() => setIsAiPanelOpen(false)}
-                className="p-1 hover:bg-black/5 rounded text-black/40 hover:text-black transition-colors cursor-pointer"
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
                 title="Đóng chat"
               >
                 <X className="w-4 h-4" />
@@ -2165,8 +2202,8 @@ export default function App() {
                     className={cn(
                       "px-4 py-2.5 rounded-2xl text-xs shadow-sm relative group max-w-[85%] leading-relaxed",
                       msg.sender === 'user' 
-                        ? "bg-black text-white rounded-tr-none" 
-                        : "bg-white border border-black/5 text-black rounded-tl-none"
+                        ? "bg-black dark:bg-white text-white dark:text-black rounded-tr-none" 
+                        : "bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 text-black dark:text-white rounded-tl-none"
                     )}
                   >
                     {msg.sender === 'ai' ? (
@@ -2180,13 +2217,13 @@ export default function App() {
                     )}
 
                     {msg.sender === 'ai' && (
-                      <div className="opacity-0 group-hover:opacity-100 flex gap-2 mt-2 pt-2 border-t border-black/5 transition-opacity justify-end">
+                      <div className="opacity-0 group-hover:opacity-100 flex gap-2 mt-2 pt-2 border-t border-black/5 dark:border-t-white/5 transition-opacity justify-end">
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(msg.text);
                             alert('Đã sao chép nội dung kế hoạch!');
                           }}
-                          className="flex items-center gap-1 text-[10px] text-black/40 hover:text-black font-semibold cursor-pointer"
+                          className="flex items-center gap-1 text-[10px] text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
                           title="Sao chép nội dung"
                         >
                           <Copy className="w-3 h-3" />
@@ -2194,7 +2231,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => handleApplyMessageToPlan(msg.text)}
-                          className="flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer"
+                          className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold cursor-pointer"
                           title="Áp dụng vào Kế hoạch đang chọn"
                         >
                           <Check className="w-3 h-3" />
@@ -2203,7 +2240,7 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                  <span className="text-[9px] text-black/35 px-1 select-none">
+                  <span className="text-[9px] text-black/35 dark:text-white/30 px-1 select-none">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -2212,7 +2249,7 @@ export default function App() {
             </div>
 
             {/* Chat Input */}
-            <div className="p-4 border-t border-black/5 bg-white shrink-0">
+            <div className="p-4 border-t border-black/5 dark:border-t-white/5 bg-white dark:bg-slate-900 shrink-0">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
@@ -2220,15 +2257,15 @@ export default function App() {
                   onChange={e => setAiPrompt(e.target.value)}
                   placeholder="Nhập câu hỏi hoặc yêu cầu..."
                   disabled={isAiLoading}
-                  className="flex-1 bg-black/5 border-transparent rounded-xl px-4 py-2.5 text-xs text-black placeholder:text-black/30 focus:outline-none focus:bg-white focus:border-black/10 focus:ring-1 focus:ring-black/10 transition-all"
+                  className="flex-1 bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-xl px-4 py-2.5 text-xs text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-black/10 dark:focus:border-white/10 focus:ring-1 focus:ring-black/10 dark:focus:ring-white/10 transition-all"
                 />
                 <button
                   type="submit"
                   disabled={isAiLoading || !aiPrompt.trim()}
-                  className="bg-black hover:bg-black/90 disabled:opacity-40 text-white p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shrink-0"
+                  className="bg-black dark:bg-white hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-40 text-white dark:text-black p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer shrink-0"
                 >
                   {isAiLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white dark:text-black" />
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
