@@ -178,6 +178,7 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'plans' | 'tree' | 'stats'>('plans');
+  const [editorViewMode, setEditorViewMode] = useState<'edit' | 'preview' | 'split'>('edit');
   const [activePopover, setActivePopover] = useState<'color' | 'emoji' | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameNoteTitle, setRenameNoteTitle] = useState('');
@@ -1205,6 +1206,38 @@ export default function App() {
                   <h2 className="text-sm font-bold truncate max-w-md">{activeNote.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
+                  {isEditing && (
+                    <div className="flex bg-black/5 p-1 rounded-xl mr-2">
+                      <button
+                        onClick={() => setEditorViewMode('edit')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                          editorViewMode === 'edit' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                        )}
+                      >
+                        Viết
+                      </button>
+                      <button
+                        onClick={() => setEditorViewMode('preview')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                          editorViewMode === 'preview' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                        )}
+                      >
+                        Xem trước
+                      </button>
+                      <button
+                        onClick={() => setEditorViewMode('split')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                          editorViewMode === 'split' ? "bg-white text-black shadow-sm" : "text-black/40 hover:text-black"
+                        )}
+                      >
+                        Song song
+                      </button>
+                    </div>
+                  )}
+
                   {!isEditing && activeNote && (
                     <>
                       <button
@@ -1464,15 +1497,35 @@ export default function App() {
                     </div>
 
                     {/* Editor Content Area */}
-                    <div className="flex-1 flex overflow-hidden bg-white p-8">
-                      <textarea
-                        ref={textareaRef}
-                        autoFocus
-                        value={editNote.content}
-                        onChange={e => setEditNote({ ...editNote, content: e.target.value })}
-                        placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
-                        className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono focus:bg-transparent"
-                      />
+                    <div className="flex-1 flex overflow-hidden bg-white">
+                      {(editorViewMode === 'edit' || editorViewMode === 'split') && (
+                        <div className={cn(
+                          "h-full p-8 overflow-y-auto flex flex-col",
+                          editorViewMode === 'split' ? "w-1/2 border-r border-black/5" : "w-full"
+                        )}>
+                          <textarea
+                            ref={textareaRef}
+                            autoFocus
+                            value={editNote.content}
+                            onChange={e => setEditNote({ ...editNote, content: e.target.value })}
+                            placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
+                            className="w-full h-full text-sm leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono focus:bg-transparent"
+                          />
+                        </div>
+                      )}
+                      
+                      {(editorViewMode === 'preview' || editorViewMode === 'split') && (
+                        <div className={cn(
+                          "h-full p-8 overflow-y-auto",
+                          editorViewMode === 'split' ? "w-1/2 bg-[#F8F9FA]/40" : "w-full"
+                        )}>
+                          <div className="markdown-body">
+                            <Markdown remarkPlugins={[remarkGfm, remarkListBullet]} rehypePlugins={[rehypeRaw]}>
+                              {editNote.content}
+                            </Markdown>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
