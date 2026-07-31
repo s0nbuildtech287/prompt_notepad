@@ -1005,23 +1005,30 @@ export default function App() {
       // Prepare Context details
       let contextText = '';
       
-      // 1. Current Active Note Context
       if (activeNote) {
-        contextText += `[KẾ HOẠCH CON HIỆN TẠI ĐANG CHỌN MỞ]\nTiêu đề: ${activeNote.title}\nNội dung:\n${activeNote.content}\n\n`;
-
-        // 2. Child notes (uploaded files) context of the active note
-        const childNotes = data.notes.filter(n => n.parentNoteId === activeNote.id);
-        if (childNotes.length > 0) {
-          contextText += `[CÁC TỆP TIN ĐÃ TẢI LÊN ĐÍNH KÈM DƯỚI KẾ HOẠCH NÀY]\n`;
-          childNotes.forEach(file => {
-            contextText += `Tên tệp: ${file.title}\nNội dung:\n${file.content}\n---\n`;
-          });
-          contextText += '\n';
+        // Tìm kế hoạch chính (Parent note cao nhất)
+        const mainParentNote = activeNote.parentNoteId 
+          ? data.notes.find(n => n.id === activeNote.parentNoteId)
+          : activeNote;
+          
+        if (mainParentNote) {
+          contextText += `[KẾ HOẠCH CHÍNH]\nTiêu đề: ${mainParentNote.title}\nNội dung:\n${mainParentNote.content}\n\n`;
+          
+          // Lấy toàn bộ các tệp tin con đính kèm dưới kế hoạch chính này
+          const childNotes = data.notes.filter(n => n.parentNoteId === mainParentNote.id);
+          if (childNotes.length > 0) {
+            contextText += `[CÁC TỆP TIN ĐÃ TẢI LÊN ĐÍNH KÈM DƯỚI KẾ HOẠCH NÀY]\n`;
+            childNotes.forEach(file => {
+              contextText += `Tên tệp: ${file.title}\nNội dung:\n${file.content}\n---\n`;
+            });
+            contextText += '\n';
+          }
         }
       }
 
       // Final user prompt context
       const finalPromptText = `${contextText}Yêu cầu của tôi: ${userMessageText}`;
+      console.log("AI Chat Input context payload:", finalPromptText);
       openAiMessages.push({
         role: 'user',
         content: finalPromptText
