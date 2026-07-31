@@ -20,7 +20,9 @@ import {
   LogOut,
   Database,
   Copy,
-  Check
+  Check,
+  Network,
+  BarChart2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -47,6 +49,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'plans' | 'tree' | 'stats'>('plans');
 
   // Form states
   const [editNote, setEditNote] = useState<Partial<Note>>({});
@@ -552,344 +555,512 @@ export default function App() {
         className="hidden" 
         aria-label="Import .txt file"
       />
-      {/* Sidebar - Topics & Notes Accordion */}
-      <aside className="w-72 border-r border-black/5 bg-white flex flex-col">
-        <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-              <NotebookPen className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="font-bold text-lg tracking-tight">Make your plan</h1>
+
+      {/* Activity Bar (Far Left Navigation Bar) */}
+      <nav className="w-16 border-r border-black/5 bg-slate-50 flex flex-col items-center justify-between py-6 shrink-0 z-25 select-none">
+        {/* Top Navigation Icons */}
+        <div className="flex flex-col items-center gap-4 w-full">
+          <div className="w-9 h-9 bg-black rounded-xl flex items-center justify-center mb-4 shadow-sm">
+            <NotebookPen className="w-5 h-5 text-white" />
           </div>
+          
+          <button
+            onClick={() => setActiveTab('plans')}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+              activeTab === 'plans' 
+                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
+                : "text-black/40 hover:text-black hover:bg-black/5"
+            )}
+            title="Lập kế hoạch & Viết lách"
+          >
+            <FileText className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tree')}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+              activeTab === 'tree' 
+                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
+                : "text-black/40 hover:text-black hover:bg-black/5"
+            )}
+            title="Sơ đồ cây (Phát triển sau)"
+          >
+            <Network className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+              activeTab === 'stats' 
+                ? "bg-white border border-black/10 shadow-sm text-black scale-[1.02]" 
+                : "text-black/40 hover:text-black hover:bg-black/5"
+            )}
+            title="Thống kê tần suất (Phát triển sau)"
+          >
+            <BarChart2 className="w-5 h-5" />
+          </button>
+
           <button
             onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
             className={cn(
-              "p-2 rounded-lg transition-all cursor-pointer",
-              isAiPanelOpen ? "bg-black text-white" : "hover:bg-black/5 text-black/40 hover:text-black"
+              "w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+              isAiPanelOpen 
+                ? "bg-emerald-50 border border-emerald-500/15 shadow-sm text-emerald-600 scale-[1.02]" 
+                : "text-black/40 hover:text-black hover:bg-black/5"
             )}
             title="Trợ lý AI"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-4 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full bg-black/5 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-black/5 focus:outline-none"
-            />
+        {/* Bottom Action Icons */}
+        <div className="flex flex-col items-center gap-3 w-full">
+          {/* User Profile Avatar */}
+          <div 
+            className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm select-none"
+            title="Tài khoản: xu4ns0n"
+          >
+            XS
           </div>
+          
+          <button 
+            onClick={handleExportJSON}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all cursor-pointer"
+            title="Export JSON"
+          >
+            <Download className="w-4.5 h-4.5" />
+          </button>
+          
+          <button 
+            onClick={() => fileInputJsonRef.current?.click()}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all cursor-pointer"
+            title="Import JSON"
+          >
+            <Upload className="w-4.5 h-4.5" />
+          </button>
+
+          <button 
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500/70 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+            title="Đăng xuất"
+          >
+            <LogOut className="w-4.5 h-4.5" />
+          </button>
         </div>
+      </nav>
 
-        <nav className="flex-1 overflow-y-auto px-3 space-y-1">
-          <div className="pb-4 px-3 flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-black">Dự án</p>
-            <button 
-              onClick={() => setShowNewTopicInput(true)}
-              className="p-1 hover:bg-black/5 rounded-md text-black/40 hover:text-black transition-colors"
-              title="Dự án mới"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+      {/* Sidebar - Topics & Notes Accordion */}
+      {activeTab === 'plans' && (
+        <aside className="w-72 border-r border-black/5 bg-white flex flex-col">
+          <div className="p-6">
+            <h1 className="font-bold text-lg tracking-tight">Make your plan</h1>
           </div>
 
-          {showNewTopicInput && (
-            <div className="px-3 py-4 space-y-2 bg-black/5 rounded-xl mb-4">
+          <div className="px-4 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
               <input
-                autoFocus
-                value={newTopicName}
-                onChange={e => setNewTopicName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleCreateTopic();
-                  if (e.key === 'Escape') setShowNewTopicInput(false);
-                }}
-                placeholder="Tên dự án..."
-                className="w-full bg-white border border-black/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full bg-black/5 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-black/5 focus:outline-none"
               />
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowNewTopicInput(false)} className="px-3 py-1 text-[10px] font-bold uppercase text-black/40">Hủy</button>
-                <button onClick={handleCreateTopic} className="px-3 py-1 bg-black text-white rounded-md text-[10px] font-bold uppercase">Thêm</button>
-              </div>
             </div>
-          )}
+          </div>
 
-          {data.topics.map(topic => (
-            <div key={topic.id} className="space-y-1">
-              <div className="group relative flex items-center">
-                <button
-                  onClick={() => toggleTopic(topic.id)}
-                  className={cn(
-                    "flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-black/5",
-                    expandedTopics[topic.id] ? "text-black" : "text-black/60"
-                  )}
-                >
-                  <motion.div
-                    animate={{ rotate: expandedTopics[topic.id] ? 90 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronRight className="w-4 h-4 text-black/20" />
-                  </motion.div>
-                  <div 
-                    className={cn(
-                      "w-2 h-2 rounded-full transition-colors duration-300",
-                      activeNote?.topicId === topic.id ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-black/10"
-                    )} 
-                  />
-                  <span className="flex-1 text-left truncate">{topic.name}</span>
-                </button>
-                
-                <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setNamingNoteForTopicId(topic.id);
-                      setExpandedTopics(prev => ({ ...prev, [topic.id]: true }));
-                    }}
-                    className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
-                    title="Thêm kế hoạch"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setImportingToTopicId(topic.id);
-                      fileInputRef.current?.click();
-                    }}
-                    className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
-                    title="Nhập .txt"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }}
-                    className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-red-500"
-                    title="Xóa dự án"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+          <nav className="flex-1 overflow-y-auto px-3 space-y-1">
+            <div className="pb-4 px-3 flex items-center justify-between">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-black">Dự án</p>
+              <button 
+                onClick={() => setShowNewTopicInput(true)}
+                className="p-1 hover:bg-black/5 rounded-md text-black/40 hover:text-black transition-colors"
+                title="Dự án mới"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {showNewTopicInput && (
+              <div className="px-3 py-4 space-y-2 bg-black/5 rounded-xl mb-4">
+                <input
+                  autoFocus
+                  value={newTopicName}
+                  onChange={e => setNewTopicName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleCreateTopic();
+                    if (e.key === 'Escape') setShowNewTopicInput(false);
+                  }}
+                  placeholder="Tên dự án..."
+                  className="w-full bg-white border border-black/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowNewTopicInput(false)} className="px-3 py-1 text-[10px] font-bold uppercase text-black/40">Hủy</button>
+                  <button onClick={handleCreateTopic} className="px-3 py-1 bg-black text-white rounded-md text-[10px] font-bold uppercase">Thêm</button>
                 </div>
               </div>
+            )}
 
-              <AnimatePresence initial={false}>
-                {expandedTopics[topic.id] && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden pl-7 space-y-1"
+            {data.topics.map(topic => (
+              <div key={topic.id} className="space-y-1">
+                <div className="group relative flex items-center">
+                  <button
+                    onClick={() => toggleTopic(topic.id)}
+                    className={cn(
+                      "flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-black/5",
+                      expandedTopics[topic.id] ? "text-black" : "text-black/60"
+                    )}
                   >
-                    {namingNoteForTopicId === topic.id && (
-                      <div className="px-3 py-1.5">
-                        <input
-                          autoFocus
-                          value={newNoteTitle}
-                          onChange={e => setNewNoteTitle(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleCreateNote(topic.id);
-                            if (e.key === 'Escape') setNamingNoteForTopicId(null);
-                          }}
-                          onBlur={() => {
-                            if (!newNoteTitle.trim()) setNamingNoteForTopicId(null);
-                          }}
-                          placeholder="Tiêu đề kế hoạch..."
-                          className="w-full bg-black/5 border border-black/10 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black/20"
-                        />
-                      </div>
-                    )}
-                    {filteredNotesByTopic(topic.id).map(note => (
-                      <button
-                        key={note.id}
-                        onClick={() => {
-                          setSelectedNoteId(note.id);
-                          setIsEditing(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-3 py-1.5 rounded-md text-xs transition-all flex items-center gap-2 group",
-                          selectedNoteId === note.id 
-                            ? "bg-black/5 text-black font-semibold" 
-                            : "text-black/50 hover:text-black hover:bg-black/5"
-                        )}
-                      >
-                        <FileText className={cn("w-3 h-3", selectedNoteId === note.id ? "text-black" : "text-black/20")} />
-                        <span className="flex-1 truncate">{note.title || 'Untitled'}</span>
-                        <Trash2 
-                          className="w-3 h-3 opacity-0 group-hover:opacity-100 text-black/20 hover:text-red-500" 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
-                        />
-                      </button>
-                    ))}
-                    {filteredNotesByTopic(topic.id).length === 0 && !namingNoteForTopicId && (
-                      <p className="text-[10px] text-black/20 py-2 italic">Chưa có kế hoạch nào</p>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </nav>
+                    <motion.div
+                      animate={{ rotate: expandedTopics[topic.id] ? 90 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronRight className="w-4 h-4 text-black/20" />
+                    </motion.div>
+                    <div 
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-colors duration-300",
+                        activeNote?.topicId === topic.id ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-black/10"
+                      )} 
+                    />
+                    <span className="flex-1 text-left truncate">{topic.name}</span>
+                  </button>
+                  
+                  <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setNamingNoteForTopicId(topic.id);
+                        setExpandedTopics(prev => ({ ...prev, [topic.id]: true }));
+                      }}
+                      className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
+                      title="Thêm kế hoạch"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setImportingToTopicId(topic.id);
+                        fileInputRef.current?.click();
+                      }}
+                      className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-black"
+                      title="Nhập .txt"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }}
+                      className="p-1.5 hover:bg-black/5 rounded-md text-black/40 hover:text-red-500"
+                      title="Xóa dự án"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-        <div className="p-4 border-t border-black/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Default User Avatar */}
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-sm select-none">
-                XS
+                <AnimatePresence initial={false}>
+                  {expandedTopics[topic.id] && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden pl-7 space-y-1"
+                    >
+                      {namingNoteForTopicId === topic.id && (
+                        <div className="px-3 py-1.5">
+                          <input
+                            autoFocus
+                            value={newNoteTitle}
+                            onChange={e => setNewNoteTitle(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleCreateNote(topic.id);
+                              if (e.key === 'Escape') setNamingNoteForTopicId(null);
+                            }}
+                            onBlur={() => {
+                              if (!newNoteTitle.trim()) setNamingNoteForTopicId(null);
+                            }}
+                            placeholder="Tiêu đề kế hoạch..."
+                            className="w-full bg-black/5 border border-black/10 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black/20"
+                          />
+                        </div>
+                      )}
+                      {filteredNotesByTopic(topic.id).map(note => (
+                        <button
+                          key={note.id}
+                          onClick={() => {
+                            setSelectedNoteId(note.id);
+                            setIsEditing(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 rounded-md text-xs transition-all flex items-center gap-2 group",
+                            selectedNoteId === note.id 
+                              ? "bg-black/5 text-black font-semibold" 
+                              : "text-black/50 hover:text-black hover:bg-black/5"
+                          )}
+                        >
+                          <FileText className={cn("w-3 h-3", selectedNoteId === note.id ? "text-black" : "text-black/20")} />
+                          <span className="flex-1 truncate">{note.title || 'Untitled'}</span>
+                          <Trash2 
+                            className="w-3 h-3 opacity-0 group-hover:opacity-100 text-black/20 hover:text-red-500" 
+                            onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
+                          />
+                        </button>
+                      ))}
+                      {filteredNotesByTopic(topic.id).length === 0 && !namingNoteForTopicId && (
+                        <p className="text-[10px] text-black/20 py-2 italic">Chưa có kế hoạch nào</p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-black leading-none">xu4ns0n</span>
-                <span className="text-[10px] text-black/40 mt-0.5">Thành viên</span>
-              </div>
-            </div>
-            
-            {/* Import / Export & Logout Buttons */}
-            <div className="flex items-center gap-0.5">
-              <span title="Dữ liệu cấu hình" className="flex items-center"><Database className="w-4 h-4 text-black/25 mr-1 select-none" /></span>
-              <button 
-                onClick={handleExportJSON}
-                className="p-2 hover:bg-black/5 rounded-lg text-black/40 hover:text-black transition-all cursor-pointer"
-                title="Export JSON"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => fileInputJsonRef.current?.click()}
-                className="p-2 hover:bg-black/5 rounded-lg text-black/40 hover:text-black transition-all cursor-pointer"
-                title="Import JSON"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="p-2 hover:bg-red-50 rounded-lg text-red-500/70 hover:text-red-600 transition-all cursor-pointer"
-                title="Đăng xuất"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
+            ))}
+          </nav>
+        </aside>
+      )}
 
       {/* Editor / Preview */}
       <main className="flex-1 bg-white flex flex-col overflow-hidden">
-        {activeNote ? (
-          <>
-            <header className="h-16 border-b border-black/5 flex items-center justify-between px-8">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
-                  />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-black/40">
-                    {data.topics.find(t => t.id === activeNote.topicId)?.name || 'Chung'}
-                  </span>
-                </div>
-                <div className="h-4 w-[1px] bg-black/5" />
-                <h2 className="text-sm font-bold truncate max-w-md">{activeNote.title}</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isEditing && activeNote && (
-                  <>
-                    <button
-                      onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
-                      className={cn(
-                        "p-2 rounded-lg transition-all",
-                        isAiPanelOpen ? "bg-black text-white" : "hover:bg-black/5 text-black/40 hover:text-black"
-                      )}
-                      title="Trợ lý AI"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleDownload}
-                      className="p-2 hover:bg-black/5 rounded-lg text-black/40 hover:text-black transition-all"
-                      title="Tải về file .txt"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-                {isEditing ? (
-                  <>
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 text-sm font-medium text-black/60 hover:text-black transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleUpdateNote}
-                      className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setIsEditing(true);
-                      setEditNote(activeNote);
-                    }}
-                    className="flex items-center gap-2 border border-black/10 px-4 py-2 rounded-lg text-sm font-bold hover:bg-black/5 transition-all"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    Edit
-                  </button>
-                )}
-              </div>
-            </header>
-
-            <div className="flex-1 overflow-y-auto relative">
-
-              {isEditing ? (
-                <div className="max-w-4xl mx-auto p-12 space-y-8">
-                  <textarea
-                    autoFocus
-                    value={editNote.content}
-                    onChange={e => setEditNote({ ...editNote, content: e.target.value })}
-                    placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
-                    className="w-full h-[75vh] text-lg leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono"
-                  />
-                </div>
-              ) : (
-                <div className="max-w-4xl mx-auto p-12">
-                  <div className="markdown-body">
-                    <Markdown>{activeNote.content}</Markdown>
+        {activeTab === 'plans' && (
+          activeNote ? (
+            <>
+              <header className="h-16 border-b border-black/5 flex items-center justify-between px-8">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-black/40">
+                      {data.topics.find(t => t.id === activeNote.topicId)?.name || 'Chung'}
+                    </span>
                   </div>
-                  {activeNote.content === '' && (
-                    <div className="flex flex-col items-center justify-center py-20 text-black/20">
-                      <FileText className="w-16 h-16 mb-4" />
-                      <p className="text-xl font-medium">Kế hoạch này đang trống</p>
-                      <button 
-                        onClick={() => {
-                          setIsEditing(true);
-                          setEditNote(activeNote);
-                        }}
-                        className="mt-6 text-sm font-bold text-black hover:underline"
+                  <div className="h-4 w-[1px] bg-black/5" />
+                  <h2 className="text-sm font-bold truncate max-w-md">{activeNote.title}</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!isEditing && activeNote && (
+                    <>
+                      <button
+                        onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+                        className={cn(
+                          "p-2 rounded-lg transition-all",
+                          isAiPanelOpen ? "bg-black text-white" : "hover:bg-black/5 text-black/40 hover:text-black"
+                        )}
+                        title="Trợ lý AI"
                       >
-                        Bắt đầu soạn thảo
+                        <Sparkles className="w-4 h-4" />
                       </button>
-                    </div>
+                      <button
+                        onClick={handleDownload}
+                        className="p-2 hover:bg-black/5 rounded-lg text-black/40 hover:text-black transition-all"
+                        title="Tải về file .txt"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="px-4 py-2 text-sm font-medium text-black/60 hover:text-black transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleUpdateNote}
+                        className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setIsEditing(true);
+                        setEditNote(activeNote);
+                      }}
+                      className="flex items-center gap-2 border border-black/10 px-4 py-2 rounded-lg text-sm font-bold hover:bg-black/5 transition-all"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Edit
+                    </button>
                   )}
                 </div>
-              )}
+              </header>
+
+              <div className="flex-1 overflow-y-auto relative">
+                {isEditing ? (
+                  <div className="max-w-4xl mx-auto p-12 space-y-8">
+                    <textarea
+                      autoFocus
+                      value={editNote.content}
+                      onChange={e => setEditNote({ ...editNote, content: e.target.value })}
+                      placeholder="Viết nội dung kế hoạch tại đây (Hỗ trợ Markdown)..."
+                      className="w-full h-[75vh] text-lg leading-relaxed border-none focus:ring-0 focus:outline-none resize-none placeholder:text-black/10 font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div className="max-w-4xl mx-auto p-12">
+                    <div className="markdown-body">
+                      <Markdown>{activeNote.content}</Markdown>
+                    </div>
+                    {activeNote.content === '' && (
+                      <div className="flex flex-col items-center justify-center py-20 text-black/20">
+                        <FileText className="w-16 h-16 mb-4" />
+                        <p className="text-xl font-medium">Kế hoạch này đang trống</p>
+                        <button 
+                          onClick={() => {
+                            setIsEditing(true);
+                            setEditNote(activeNote);
+                          }}
+                          className="mt-6 text-sm font-bold text-black hover:underline"
+                        >
+                          Bắt đầu soạn thảo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-24 h-24 bg-black/5 rounded-3xl flex items-center justify-center mb-8">
+                <FileText className="w-10 h-10 text-black/20" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Chọn một kế hoạch để xem</h2>
+              <p className="text-black/40 max-w-xs">
+                Chọn một kế hoạch từ thanh bên hoặc tạo mới để bắt đầu.
+              </p>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className="w-24 h-24 bg-black/5 rounded-3xl flex items-center justify-center mb-8">
-              <FileText className="w-10 h-10 text-black/20" />
+          )
+        )}
+
+        {activeTab === 'tree' && (
+          <div className="flex-1 flex flex-col p-12 overflow-y-auto">
+            <div className="max-w-4xl mx-auto w-full space-y-8">
+              <div>
+                <h2 className="text-2xl font-black text-black">Sơ đồ cây & Mindmap</h2>
+                <p className="text-black/40 text-sm mt-1">Phác thảo lộ trình và chia nhóm ý tưởng dưới dạng trực quan</p>
+              </div>
+              
+              <div className="bg-[#F8F9FA] border border-black/5 rounded-3xl p-12 flex flex-col items-center justify-center min-h-[500px] text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-60 pointer-events-none" />
+                
+                {/* Visual Mock Tree Chart */}
+                <div className="flex flex-col items-center gap-12 relative z-10 w-full max-w-lg">
+                  <div className="bg-black text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg">
+                    Dự án Youtube
+                  </div>
+                  
+                  <div className="flex justify-between w-full relative">
+                    {/* Connecting lines */}
+                    <div className="absolute top-[-24px] left-1/2 right-1/2 w-0.5 h-6 bg-black/10 -translate-x-1/2" />
+                    <div className="absolute top-[-24px] left-[15%] right-[15%] h-0.5 bg-black/10" />
+                    
+                    <div className="flex flex-col items-center gap-6 w-[45%]">
+                      <div className="absolute top-[-24px] left-[15%] w-0.5 h-6 bg-black/10" />
+                      <div className="bg-white border border-black/10 text-black px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm w-full">
+                        Kênh youtube năng lượng
+                      </div>
+                      <div className="flex flex-col gap-2 w-4/5 text-left pl-4 border-l-2 border-emerald-500/30">
+                        <span className="text-[10px] text-black/50">○ Lên kịch bản 5 video</span>
+                        <span className="text-[10px] text-black/50">○ Quay phim cơ bản</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-6 w-[45%]">
+                      <div className="absolute top-[-24px] right-[15%] w-0.5 h-6 bg-black/10" />
+                      <div className="bg-white border border-black/10 text-black px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm w-full">
+                        Chiến dịch truyền thông
+                      </div>
+                      <div className="flex flex-col gap-2 w-4/5 text-left pl-4 border-l-2 border-emerald-500/30">
+                        <span className="text-[10px] text-black/50">○ Tạo poster quảng bá</span>
+                        <span className="text-[10px] text-black/50">○ Đăng bài Facebook</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-12 max-w-xs relative z-10">
+                  <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3">
+                    Đang phát triển
+                  </div>
+                  <h3 className="font-bold text-lg mb-1">Thiết kế Sơ đồ Dự án</h3>
+                  <p className="text-xs text-black/40">
+                    Tính năng vẽ sơ đồ tư duy (mindmap) và liên kết các kế hoạch con dưới dạng cây thư mục trực quan đang được nghiên cứu phát triển.
+                  </p>
+                </div>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Chọn một kế hoạch để xem</h2>
-            <p className="text-black/40 max-w-xs">
-              Chọn một kế hoạch từ thanh bên hoặc tạo mới để bắt đầu.
-            </p>
+          </div>
+        )}
+
+        {activeTab === 'stats' && (
+          <div className="flex-1 flex flex-col p-12 overflow-y-auto">
+            <div className="max-w-4xl mx-auto w-full space-y-8">
+              <div>
+                <h2 className="text-2xl font-black text-black">Thống kê tần suất</h2>
+                <p className="text-black/40 text-sm mt-1">Theo dõi mức độ hoạt động và tiến độ kế hoạch của bạn</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số dự án</span>
+                  <p className="text-3xl font-black text-black mt-2">{data.topics.length}</p>
+                </div>
+                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Tổng số kế hoạch</span>
+                  <p className="text-3xl font-black text-black mt-2">{data.notes.length}</p>
+                </div>
+                <div className="bg-[#F8F9FA] border border-black/5 p-6 rounded-3xl">
+                  <span className="text-xs text-black/40 font-bold uppercase tracking-wider">Mức độ hoàn thành</span>
+                  <p className="text-3xl font-black text-emerald-600 mt-2">78%</p>
+                </div>
+              </div>
+
+              <div className="bg-[#F8F9FA] border border-black/5 rounded-3xl p-8 space-y-6 relative overflow-hidden">
+                <h3 className="font-bold text-sm text-black">Tần suất lập kế hoạch (30 ngày qua)</h3>
+                
+                <div className="flex flex-wrap gap-1.5 justify-start">
+                  {Array.from({ length: 30 }).map((_, i) => {
+                    const intensity = i % 7 === 0 ? "bg-emerald-500" : i % 5 === 0 ? "bg-emerald-300" : i % 3 === 0 ? "bg-emerald-100" : "bg-black/5";
+                    return (
+                      <div 
+                        key={i} 
+                        className={cn("w-6 h-6 rounded-md transition-transform hover:scale-110", intensity)}
+                        title={`Ngày ${i + 1}`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="pt-6 border-t border-black/5 flex items-center justify-between text-xs text-black/40">
+                  <span>Ít hoạt động</span>
+                  <div className="flex gap-1">
+                    <div className="w-3.5 h-3.5 bg-black/5 rounded-sm" />
+                    <div className="w-3.5 h-3.5 bg-emerald-100 rounded-sm" />
+                    <div className="w-3.5 h-3.5 bg-emerald-300 rounded-sm" />
+                    <div className="w-3.5 h-3.5 bg-emerald-500 rounded-sm" />
+                  </div>
+                  <span>Năng động</span>
+                </div>
+
+                <div className="text-center pt-4">
+                  <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2">
+                    Đang phát triển
+                  </div>
+                  <p className="text-xs text-black/40">
+                    Hệ thống phân tích tần suất chỉnh sửa, biểu đồ năng suất viết lách sẽ sớm được tích hợp.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
