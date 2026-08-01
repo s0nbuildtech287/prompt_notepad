@@ -262,6 +262,7 @@ export default function App() {
   const [renamingMNodeId, setRenamingMNodeId] = useState<string | null>(null);
   const [renameMNodeText, setRenameMNodeText] = useState('');
   const [renameMNodePriority, setRenameMNodePriority] = useState<number>(1);
+  const [renameMNodePriorityText, setRenameMNodePriorityText] = useState('');
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -498,6 +499,73 @@ export default function App() {
     if (depth === 8) return '●';
     
     return ''; // Cấp 9 trở đi: không cần mục lục
+  };
+
+  const romanToNum = (str: string): number => {
+    const cleaned = str.toUpperCase().trim();
+    const map: { [key: string]: number } = {
+      'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
+      'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10,
+      'XI': 11, 'XII': 12, 'XIII': 13, 'XIV': 14, 'XV': 15,
+      'XVI': 16, 'XVII': 17, 'XVIII': 18, 'XIX': 19, 'XX': 20
+    };
+    if (map[cleaned] !== undefined) return map[cleaned];
+    const num = parseInt(cleaned);
+    return isNaN(num) ? 1 : num;
+  };
+
+  const letterToNum = (str: string): number => {
+    const cleaned = str.toUpperCase().trim();
+    if (cleaned.length === 1 && cleaned >= 'A' && cleaned <= 'Z') {
+      return cleaned.charCodeAt(0) - 65 + 1;
+    }
+    const num = parseInt(cleaned);
+    return isNaN(num) ? 1 : num;
+  };
+
+  const parsePriorityInput = (node: MindmapNode, val: string): number => {
+    const depth = getNodeDepth(node);
+    const trimmed = val.trim();
+    if (!trimmed) return 1;
+
+    if (depth === 1) {
+      return romanToNum(trimmed);
+    }
+    if (depth === 2) {
+      return letterToNum(trimmed);
+    }
+    if (depth === 3 || depth === 4 || depth === 5) {
+      const parts = trimmed.split('.');
+      const lastPart = parts[parts.length - 1];
+      const num = parseInt(lastPart);
+      return isNaN(num) ? 1 : num;
+    }
+    
+    const num = parseInt(trimmed);
+    return isNaN(num) ? 1 : num;
+  };
+
+  const formatPriorityInput = (node: MindmapNode, priority: number): string => {
+    const depth = getNodeDepth(node);
+    if (depth === 1) return getRomanNumeral(priority);
+    if (depth === 2) return getUppercaseLetter(priority);
+    if (depth === 3 || depth === 4 || depth === 5) {
+      const path: number[] = [];
+      let current = node;
+      while (current && current.parentId) {
+        if (current.id === node.id) {
+          path.unshift(priority);
+        } else {
+          path.unshift(current.priority || 1);
+        }
+        const parent = mindmapNodes.find(n => n.id === current.parentId);
+        if (!parent) break;
+        current = parent;
+      }
+      const arabicSlice = path.slice(2);
+      return arabicSlice.join('.');
+    }
+    return priority.toString();
   };
 
   const handleToggleMNodeComplete = (nodeId: string) => {
@@ -2888,15 +2956,13 @@ export default function App() {
                             className="absolute top-[-60px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-2 z-50 flex items-center gap-2 pointer-events-auto min-w-[270px] animate-in zoom-in duration-150"
                             onPointerDown={(e) => e.stopPropagation()}
                           >
-                            {!isRoot && (
+                            {!isRoot && getNodeDepth(node) < 6 && (
                               <div className="flex flex-col gap-0.5 shrink-0">
                                 <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-center">Thứ tự</span>
                                 <input
-                                  type="number"
-                                  min="1"
-                                  max="99"
-                                  value={renameMNodePriority}
-                                  onChange={(e) => setRenameMNodePriority(parseInt(e.target.value) || 1)}
+                                  type="text"
+                                  value={renameMNodePriorityText}
+                                  onChange={(e) => setRenameMNodePriorityText(e.target.value)}
                                   className="w-12 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold text-center rounded py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
                                   title="Thứ tự ưu tiên"
                                 />
@@ -2909,7 +2975,7 @@ export default function App() {
                                 value={renameMNodeText}
                                 onChange={(e) => setRenameMNodeText(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText, renameMNodePriority);
+                                  if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText, parsePriorityInput(node, renameMNodePriorityText));
                                   if (e.key === 'Escape') setRenamingMNodeId(null);
                                 }}
                                 className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold rounded px-2.5 py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
@@ -2917,7 +2983,7 @@ export default function App() {
                               />
                             </div>
                             <button
-                              onClick={() => handleRenameMNode(node.id, renameMNodeText, renameMNodePriority)}
+                              onClick={() => handleRenameMNode(node.id, renameMNodeText, parsePriorityInput(node, renameMNodePriorityText))}
                               className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer self-end h-[26px]"
                             >
                               Lưu
@@ -2943,6 +3009,7 @@ export default function App() {
                               setRenamingMNodeId(node.id);
                               setRenameMNodeText(node.text);
                               setRenameMNodePriority(node.priority || 1);
+                              setRenameMNodePriorityText(formatPriorityInput(node, node.priority || 1));
                             }}
                             className={cn(
                               "cursor-pointer select-none font-bold text-sm whitespace-normal break-words py-0.5 text-center flex-1",
@@ -2998,6 +3065,7 @@ export default function App() {
                                 setRenamingMNodeId(node.id);
                                 setRenameMNodeText(node.text);
                                 setRenameMNodePriority(node.priority || 1);
+                                setRenameMNodePriorityText(formatPriorityInput(node, node.priority || 1));
                               }}
                               className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer"
                               title="Đổi tên"
