@@ -3180,7 +3180,7 @@ export default function App() {
                               setRenameMNodePriorityText(formatPriorityInput(node, node.priority || 1));
                             }}
                             className={cn(
-                              "cursor-pointer select-none font-bold text-sm py-0.5 text-center flex-1 [overflow-wrap:anywhere] [word-break:break-all] whitespace-normal",
+                              "cursor-pointer select-none font-bold text-sm py-0.5 text-center flex-1 [overflow-wrap:anywhere] whitespace-normal",
                               node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
                             )}
                           >
