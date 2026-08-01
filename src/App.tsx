@@ -267,6 +267,7 @@ export default function App() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isMindmapSelectOpen, setIsMindmapSelectOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'one-side' | 'two-sides'>('one-side');
+  const [zoomScale, setZoomScale] = useState<number>(1.0);
 
   // Theme State & effect
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -281,6 +282,32 @@ export default function App() {
     }
     localStorage.setItem('prompt_notepad_theme', theme);
   }, [theme]);
+
+  const mindmapBoardRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const board = mindmapBoardRef.current;
+    if (!board) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = 1.05;
+      setZoomScale(prev => {
+        let nextScale = prev;
+        if (e.deltaY < 0) {
+          nextScale = Math.min(2.0, prev * zoomFactor);
+        } else {
+          nextScale = Math.max(0.3, prev / zoomFactor);
+        }
+        return parseFloat(nextScale.toFixed(2));
+      });
+    };
+
+    board.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      board.removeEventListener('wheel', handleWheel);
+    };
+  }, [activeTab]);
 
   const getBezierPath = (startX: number, startY: number, endX: number, endY: number) => {
     const controlX = startX + (endX - startX) * 0.5;
@@ -2711,6 +2738,7 @@ export default function App() {
             {/* Mindmap Canvas Board */}
             <div 
               id="mindmap-board"
+              ref={mindmapBoardRef}
               className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
                 const target = e.target as HTMLElement;
@@ -2725,8 +2753,10 @@ export default function App() {
                 const rect = board.getBoundingClientRect();
                 
                 if (draggedNodeId) {
-                  const x = e.clientX - rect.left - dragOffset.x - panOffset.x;
-                  const y = e.clientY - rect.top - dragOffset.y - panOffset.y;
+                  const canvasX = (e.clientX - rect.left - panOffset.x) / zoomScale;
+                  const canvasY = (e.clientY - rect.top - panOffset.y) / zoomScale;
+                  const x = canvasX - dragOffset.x;
+                  const y = canvasY - dragOffset.y;
                   setMindmapNodes(prev => prev.map(n => {
                     if (n.id === draggedNodeId) {
                       return { ...n, x, y };
@@ -2751,233 +2781,245 @@ export default function App() {
             >
               {/* Dot grid background */}
               <div 
-                className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#334155_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none transition-all duration-75"
+                className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#334155_1.5px,transparent_1.5px)] pointer-events-none transition-all duration-75"
                 style={{ 
-                  backgroundPosition: `${panOffset.x}px ${panOffset.y}px`
+                  backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
+                  backgroundSize: `${24 * zoomScale}px ${24 * zoomScale}px`
                 }}
               />
 
-              {/* Connecting lines SVG layer */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                {mindmapNodes.map(node => {
-                  if (!node.parentId) return null;
-                  const parent = mindmapNodes.find(n => n.id === node.parentId);
-                  if (!parent) return null;
+              {/* Scaled and Translated Canvas Container */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{ 
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
+                  transformOrigin: '0 0'
+                }}
+              >
+                {/* Connecting lines SVG layer */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ overflow: 'visible' }}>
+                  {mindmapNodes.map(node => {
+                    if (!node.parentId) return null;
+                    const parent = mindmapNodes.find(n => n.id === node.parentId);
+                    if (!parent) return null;
 
-                  const parentW = parent.type === 'root' ? 180 : 160;
-                  const parentH = 40;
-                  const childW = node.type === 'root' ? 180 : 160;
-                  const childH = 40;
+                    const parentW = parent.type === 'root' ? 180 : 160;
+                    const parentH = 40;
+                    const childW = node.type === 'root' ? 180 : 160;
+                    const childH = 40;
 
-                  let startX, startY, endX, endY;
-                  if (node.x > parent.x + (parentW / 2)) {
-                    startX = parent.x + parentW + panOffset.x;
-                    startY = parent.y + (parentH / 2) + panOffset.y;
-                    endX = node.x + panOffset.x;
-                    endY = node.y + (childH / 2) + panOffset.y;
-                  } else {
-                    startX = parent.x + panOffset.x;
-                    startY = parent.y + (parentH / 2) + panOffset.y;
-                    endX = node.x + childW + panOffset.x;
-                    endY = node.y + (childH / 2) + panOffset.y;
-                  }
+                    let startX, startY, endX, endY;
+                    if (node.x > parent.x + (parentW / 2)) {
+                      startX = parent.x + parentW;
+                      startY = parent.y + (parentH / 2);
+                      endX = node.x;
+                      endY = node.y + (childH / 2);
+                    } else {
+                      startX = parent.x;
+                      startY = parent.y + (parentH / 2);
+                      endX = node.x + childW;
+                      endY = node.y + (childH / 2);
+                    }
 
-                  const nodeStyle = getNodeStyles(node);
-                  return (
-                    <g key={`link_${node.id}`}>
-                      <path 
-                        d={getBezierPath(startX, startY, endX, endY)} 
-                        fill="none" 
-                        stroke={nodeStyle.lineColor} 
-                        strokeWidth={node.parentId ? '2' : '2.5'} 
-                        strokeDasharray={node.parentId ? '6 4' : undefined}
-                      />
-                      <circle cx={startX} cy={startY} r="3.5" fill={nodeStyle.lineColor} />
-                      <circle cx={endX} cy={endY} r="3.5" fill={nodeStyle.dotColor} />
-                    </g>
-                  );
-                })}
-              </svg>
+                    const nodeStyle = getNodeStyles(node);
+                    return (
+                      <g key={`link_${node.id}`}>
+                        <path 
+                          d={getBezierPath(startX, startY, endX, endY)} 
+                          fill="none" 
+                          stroke={nodeStyle.lineColor} 
+                          strokeWidth={node.parentId ? '2' : '2.5'} 
+                          strokeDasharray={node.parentId ? '6 4' : undefined}
+                        />
+                        <circle cx={startX} cy={startY} r="3.5" fill={nodeStyle.lineColor} />
+                        <circle cx={endX} cy={endY} r="3.5" fill={nodeStyle.dotColor} />
+                      </g>
+                    );
+                  })}
+                </svg>
 
-              {/* Rendering interactive nodes */}
-              <div className="absolute inset-0 pointer-events-none z-10">
-                {mindmapNodes.map(node => {
-                  const isNodeRenaming = renamingMNodeId === node.id;
-                  const nodeStyle = getNodeStyles(node);
-                  const isRoot = !node.parentId;
-                  const nodeWidth = isRoot ? 180 : 160;
-                  
-                  return (
-                    <div
-                      key={node.id}
-                      className={cn(
-                        "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
-                        nodeStyle.bgClass,
-                        node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5",
-                        isNodeRenaming && "ring-2 ring-blue-500 border-blue-500"
-                      )}
-                      style={{ 
-                        left: node.x + panOffset.x, 
-                        top: node.y + panOffset.y,
-                        minWidth: `${nodeWidth}px`,
-                        width: 'max-content',
-                        maxWidth: '280px',
-                        minHeight: '40px',
-                        height: 'auto',
-                        cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
-                      }}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        if (isNodeRenaming) return;
-                        setDraggedNodeId(node.id);
-                        
-                        const board = document.getElementById('mindmap-board');
-                        if (board) {
-                          const rect = board.getBoundingClientRect();
-                          setDragOffset({
-                            x: e.clientX - rect.left - node.x - panOffset.x,
-                            y: e.clientY - rect.top - node.y - panOffset.y
-                          });
-                        }
-                      }}
-                    >
-                      {/* Floating Editor Popover */}
-                      {isNodeRenaming && (
-                        <div 
-                          className="absolute top-[-60px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-2 z-50 flex items-center gap-2 pointer-events-auto min-w-[270px] animate-in zoom-in duration-150"
-                          onPointerDown={(e) => e.stopPropagation()}
-                        >
-                          {!isRoot && (
-                            <div className="flex flex-col gap-0.5 shrink-0">
-                              <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-center">Thứ tự</span>
+                {/* Rendering interactive nodes */}
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  {mindmapNodes.map(node => {
+                    const isNodeRenaming = renamingMNodeId === node.id;
+                    const nodeStyle = getNodeStyles(node);
+                    const isRoot = !node.parentId;
+                    const nodeWidth = isRoot ? 180 : 160;
+                    
+                    return (
+                      <div
+                        key={node.id}
+                        className={cn(
+                          "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
+                          nodeStyle.bgClass,
+                          node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5",
+                          isNodeRenaming && "ring-2 ring-blue-500 border-blue-500"
+                        )}
+                        style={{ 
+                          left: node.x, 
+                          top: node.y,
+                          minWidth: `${nodeWidth}px`,
+                          width: 'max-content',
+                          maxWidth: '280px',
+                          minHeight: '40px',
+                          height: 'auto',
+                          cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          if (isNodeRenaming) return;
+                          setDraggedNodeId(node.id);
+                          
+                          const board = document.getElementById('mindmap-board');
+                          if (board) {
+                            const rect = board.getBoundingClientRect();
+                            const canvasX = (e.clientX - rect.left - panOffset.x) / zoomScale;
+                            const canvasY = (e.clientY - rect.top - panOffset.y) / zoomScale;
+                            setDragOffset({
+                              x: canvasX - node.x,
+                              y: canvasY - node.y
+                            });
+                          }
+                        }}
+                      >
+                        {/* Floating Editor Popover */}
+                        {isNodeRenaming && (
+                          <div 
+                            className="absolute top-[-60px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-2 z-50 flex items-center gap-2 pointer-events-auto min-w-[270px] animate-in zoom-in duration-150"
+                            onPointerDown={(e) => e.stopPropagation()}
+                          >
+                            {!isRoot && (
+                              <div className="flex flex-col gap-0.5 shrink-0">
+                                <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-center">Thứ tự</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="99"
+                                  value={renameMNodePriority}
+                                  onChange={(e) => setRenameMNodePriority(parseInt(e.target.value) || 1)}
+                                  className="w-12 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold text-center rounded py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
+                                  title="Thứ tự ưu tiên"
+                                />
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                              <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-left pl-1">Nội dung nhánh</span>
                               <input
-                                type="number"
-                                min="1"
-                                max="99"
-                                value={renameMNodePriority}
-                                onChange={(e) => setRenameMNodePriority(parseInt(e.target.value) || 1)}
-                                className="w-12 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold text-center rounded py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
-                                title="Thứ tự ưu tiên"
+                                autoFocus
+                                value={renameMNodeText}
+                                onChange={(e) => setRenameMNodeText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText, renameMNodePriority);
+                                  if (e.key === 'Escape') setRenamingMNodeId(null);
+                                }}
+                                className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold rounded px-2.5 py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
+                                placeholder="Tên nhánh..."
                               />
                             </div>
-                          )}
-                          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                            <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-left pl-1">Nội dung nhánh</span>
-                            <input
-                              autoFocus
-                              value={renameMNodeText}
-                              onChange={(e) => setRenameMNodeText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText, renameMNodePriority);
-                                if (e.key === 'Escape') setRenamingMNodeId(null);
-                              }}
-                              className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold rounded px-2.5 py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
-                              placeholder="Tên nhánh..."
-                            />
+                            <button
+                              onClick={() => handleRenameMNode(node.id, renameMNodeText, renameMNodePriority)}
+                              className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer self-end h-[26px]"
+                            >
+                              Lưu
+                            </button>
+                            <button
+                              onClick={() => setRenamingMNodeId(null)}
+                              className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-black/40 dark:text-white/40 cursor-pointer self-end h-[26px] flex items-center justify-center"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleRenameMNode(node.id, renameMNodeText, renameMNodePriority)}
-                            className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer self-end h-[26px]"
-                          >
-                            Lưu
-                          </button>
-                          <button
-                            onClick={() => setRenamingMNodeId(null)}
-                            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-black/40 dark:text-white/40 cursor-pointer self-end h-[26px] flex items-center justify-center"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
-                        {!isRoot && (
-                          <span className="px-2 py-0.5 bg-blue-500/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300 rounded-md text-xs font-black shrink-0 select-none border border-blue-500/10 shadow-sm">
-                            {getNodePriorityIndex(node)}
-                          </span>
                         )}
-                        <span 
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingMNodeId(node.id);
-                            setRenameMNodeText(node.text);
-                            setRenameMNodePriority(node.priority || 1);
-                          }}
-                          className={cn(
-                            "cursor-pointer select-none font-bold text-sm whitespace-normal break-words py-0.5 text-center flex-1",
-                            node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
+
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
+                          {!isRoot && (
+                            <span className="px-2 py-0.5 bg-blue-500/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300 rounded-md text-xs font-black shrink-0 select-none border border-blue-500/10 shadow-sm">
+                              {getNodePriorityIndex(node)}
+                            </span>
                           )}
-                        >
-                          {node.text}
-                        </span>
-                      </div>
-
-                      {/* Completed Corner Badge */}
-                      {node.isCompleted && (
-                        <div 
-                          className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 dark:bg-emerald-400 text-white dark:text-slate-950 rounded-full flex items-center justify-center shadow-md shadow-emerald-500/20 border border-white dark:border-slate-900 z-20 animate-in zoom-in duration-200"
-                          title="Đã hoàn thành"
-                        >
-                          <Check className="w-3.5 h-3.5 stroke-[3.5]" />
-                        </div>
-                      )}
-
-                      {!isNodeRenaming && (
-                        <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMNodeComplete(node.id);
-                            }}
-                            className={cn(
-                              "p-1 rounded cursor-pointer transition-colors",
-                              node.isCompleted 
-                                ? "hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-500" 
-                                : "hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-black/40 dark:text-white/40 hover:text-emerald-500 dark:hover:text-emerald-400"
-                            )}
-                            title={node.isCompleted ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          </button>
-                          
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddSubNode(node.id);
-                            }}
-                            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded text-emerald-600 dark:text-emerald-400 cursor-pointer"
-                            title="Thêm nhánh con"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                          
-                          <button
-                            onClick={(e) => {
+                          <span 
+                            onDoubleClick={(e) => {
                               e.stopPropagation();
                               setRenamingMNodeId(node.id);
                               setRenameMNodeText(node.text);
                               setRenameMNodePriority(node.priority || 1);
                             }}
-                            className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer"
-                            title="Đổi tên"
+                            className={cn(
+                              "cursor-pointer select-none font-bold text-sm whitespace-normal break-words py-0.5 text-center flex-1",
+                              node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
+                            )}
                           >
-                            <Edit3 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteMNode(node.id);
-                            }}
-                            className="p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-red-500 cursor-pointer"
-                            title="Xóa nhánh"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                            {node.text}
+                          </span>
                         </div>
-                      )}
-                    </div>
+
+                        {/* Completed Corner Badge */}
+                        {node.isCompleted && (
+                          <div 
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 dark:bg-emerald-400 text-white dark:text-slate-950 rounded-full flex items-center justify-center shadow-md shadow-emerald-500/20 border border-white dark:border-slate-900 z-20 animate-in zoom-in duration-200"
+                            title="Đã hoàn thành"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[3.5]" />
+                          </div>
+                        )}
+
+                        {!isNodeRenaming && (
+                          <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleMNodeComplete(node.id);
+                              }}
+                              className={cn(
+                                "p-1 rounded cursor-pointer transition-colors",
+                                node.isCompleted 
+                                  ? "hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-500" 
+                                  : "hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-black/40 dark:text-white/40 hover:text-emerald-500 dark:hover:text-emerald-400"
+                              )}
+                              title={node.isCompleted ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddSubNode(node.id);
+                              }}
+                              className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                              title="Thêm nhánh con"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRenamingMNodeId(node.id);
+                                setRenameMNodeText(node.text);
+                                setRenameMNodePriority(node.priority || 1);
+                              }}
+                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer"
+                              title="Đổi tên"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteMNode(node.id);
+                              }}
+                              className="p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-red-500 cursor-pointer"
+                              title="Xóa nhánh"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                   );
                 })}
+              </div>
               </div>
 
               {/* Instructions / Empty state overlay */}
@@ -3000,6 +3042,36 @@ export default function App() {
                       Thêm nhánh chính
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Zoom Controls Toolbar */}
+              {mindmapNodes.length > 0 && (
+                <div className="absolute bottom-4 right-4 bg-white/90 dark:bg-slate-900/90 border border-black/5 dark:border-white/5 backdrop-blur-md rounded-2xl p-1 shadow-xl flex items-center gap-1 z-30 pointer-events-auto">
+                  <button
+                    onClick={() => setZoomScale(prev => Math.max(0.3, parseFloat((prev - 0.1).toFixed(2))))}
+                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer font-bold"
+                    title="Thu nhỏ"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setZoomScale(1.0);
+                      setPanOffset({ x: 0, y: 0 });
+                    }}
+                    className="px-2.5 py-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-[10px] font-black text-black/60 dark:text-white/60 cursor-pointer uppercase select-none min-w-[50px] text-center"
+                    title="Đặt lại zoom & vị trí trung tâm"
+                  >
+                    {Math.round(zoomScale * 100)}%
+                  </button>
+                  <button
+                    onClick={() => setZoomScale(prev => Math.min(2.0, parseFloat((prev + 0.1).toFixed(2))))}
+                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer font-bold"
+                    title="Phóng to"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
