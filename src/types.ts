@@ -24,6 +24,7 @@ export interface MindmapNode {
   noteId?: string;
   topicId?: string;
   isCompleted?: boolean;
+  priority?: number;
 }
 
 export interface AppData {

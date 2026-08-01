@@ -261,6 +261,7 @@ export default function App() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [renamingMNodeId, setRenamingMNodeId] = useState<string | null>(null);
   const [renameMNodeText, setRenameMNodeText] = useState('');
+  const [renameMNodePriority, setRenameMNodePriority] = useState<number>(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -333,6 +334,11 @@ export default function App() {
 
   const handleAddRootNode = () => {
     const activeNoteObj = data.notes.find(n => n.id === activeMindmapNoteId);
+    const siblings = mindmapNodes.filter(n => !n.parentId);
+    const nextPriority = siblings.length > 0
+      ? Math.max(...siblings.map(s => s.priority || 1)) + 1
+      : 1;
+
     const newNode: MindmapNode = {
       id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       text: 'Ý tưởng mới',
@@ -341,7 +347,8 @@ export default function App() {
       y: 200 - panOffset.y,
       type: 'root',
       noteId: activeMindmapNoteId,
-      topicId: activeNoteObj?.topicId
+      topicId: activeNoteObj?.topicId,
+      priority: nextPriority
     };
     setMindmapNodes(prev => [...prev, newNode]);
   };
@@ -350,6 +357,11 @@ export default function App() {
     const parent = mindmapNodes.find(n => n.id === parentId);
     if (!parent) return;
     const activeNoteObj = data.notes.find(n => n.id === activeMindmapNoteId);
+    const siblings = mindmapNodes.filter(n => n.parentId === parentId);
+    const nextPriority = siblings.length > 0
+      ? Math.max(...siblings.map(s => s.priority || 1)) + 1
+      : 1;
+
     const newNode: MindmapNode = {
       id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       text: 'Nhánh con mới',
@@ -358,7 +370,8 @@ export default function App() {
       y: parent.y + (Math.random() * 80 - 40),
       type: 'sub',
       noteId: activeMindmapNoteId,
-      topicId: activeNoteObj?.topicId
+      topicId: activeNoteObj?.topicId,
+      priority: nextPriority
     };
     setMindmapNodes(prev => [...prev, newNode]);
   };
@@ -379,14 +392,84 @@ export default function App() {
     });
   };
 
-  const handleRenameMNode = (nodeId: string, newText: string) => {
+  const handleRenameMNode = (nodeId: string, newText: string, newPriority?: number) => {
     setMindmapNodes(prev => prev.map(n => {
       if (n.id === nodeId) {
-        return { ...n, text: newText.trim() || 'Nhánh không tên' };
+        return { 
+          ...n, 
+          text: newText.trim() || 'Nhánh không tên',
+          priority: newPriority !== undefined ? newPriority : (n.priority || 1)
+        };
       }
       return n;
     }));
     setRenamingMNodeId(null);
+  };
+
+  const handleUpdateNodePriority = (nodeId: string, newPriority: number) => {
+    setMindmapNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        return { ...n, priority: newPriority };
+      }
+      return n;
+    }));
+  };
+
+  const getRomanNumeral = (num: number): string => {
+    const romanMap: [number, string][] = [
+      [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+      [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+      [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+    ];
+    let result = '';
+    let n = num;
+    for (const [val, char] of romanMap) {
+      while (n >= val) {
+        result += char;
+        n -= val;
+      }
+    }
+    return result || 'I';
+  };
+
+  const getUppercaseLetter = (num: number): string => {
+    let result = '';
+    let n = num - 1;
+    while (n >= 0) {
+      result = String.fromCharCode((n % 26) + 65) + result;
+      n = Math.floor(n / 26) - 1;
+    }
+    return result || 'A';
+  };
+
+  const getNodePriorityIndex = (node: MindmapNode): string => {
+    const depth = getNodeDepth(node);
+    if (depth === 0) return '';
+    
+    const p = node.priority || 1;
+    if (depth === 1) return getRomanNumeral(p) + '.';
+    if (depth === 2) return getUppercaseLetter(p) + '.';
+    
+    // Chuỗi số thường cho cấp 3, 4, 5 (tối đa đến 3 số dạng 1.1.1)
+    if (depth === 3 || depth === 4 || depth === 5) {
+      const path: number[] = [];
+      let current = node;
+      while (current && current.parentId) {
+        path.unshift(current.priority || 1);
+        const parent = mindmapNodes.find(n => n.id === current.parentId);
+        if (!parent) break;
+        current = parent;
+      }
+      const arabicSlice = path.slice(2);
+      return arabicSlice.join('.') + (depth === 3 ? '.' : '');
+    }
+    
+    // Các ký tự bullet cho các cấp sâu hơn
+    if (depth === 6) return '-';
+    if (depth === 7) return '+';
+    if (depth === 8) return '●';
+    
+    return ''; // Cấp 9 trở đi: không cần mục lục
   };
 
   const handleToggleMNodeComplete = (nodeId: string) => {
@@ -2533,13 +2616,17 @@ export default function App() {
                       className={cn(
                         "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
                         nodeStyle.bgClass,
-                        node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5"
+                        node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5",
+                        isNodeRenaming && "ring-2 ring-blue-500 border-blue-500"
                       )}
                       style={{ 
                         left: node.x + panOffset.x, 
                         top: node.y + panOffset.y,
-                        width: `${nodeWidth}px`,
-                        height: '40px',
+                        minWidth: `${nodeWidth}px`,
+                        width: 'max-content',
+                        maxWidth: '280px',
+                        minHeight: '40px',
+                        height: 'auto',
                         cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
                       }}
                       onPointerDown={(e) => {
@@ -2557,40 +2644,76 @@ export default function App() {
                         }
                       }}
                     >
-                      {isNodeRenaming ? (
-                        <input
-                          autoFocus
-                          value={renameMNodeText}
-                          onChange={(e) => setRenameMNodeText(e.target.value)}
-                          onBlur={() => handleRenameMNode(node.id, renameMNodeText)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText);
-                            if (e.key === 'Escape') setRenamingMNodeId(null);
-                          }}
-                          className={cn(
-                            "w-full bg-transparent border-none focus:ring-0 focus:outline-none p-0 text-sm font-bold text-center rounded",
-                            isRoot ? "text-white" : "text-inherit"
+                      {/* Floating Editor Popover */}
+                      {isNodeRenaming && (
+                        <div 
+                          className="absolute top-[-60px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-2 z-50 flex items-center gap-2 pointer-events-auto min-w-[270px] animate-in zoom-in duration-150"
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          {!isRoot && (
+                            <div className="flex flex-col gap-0.5 shrink-0">
+                              <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-center">Thứ tự</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="99"
+                                value={renameMNodePriority}
+                                onChange={(e) => setRenameMNodePriority(parseInt(e.target.value) || 1)}
+                                className="w-12 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold text-center rounded py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
+                                title="Thứ tự ưu tiên"
+                              />
+                            </div>
                           )}
-                          style={{ outline: 'none' }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
-                          <span 
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              setRenamingMNodeId(node.id);
-                              setRenameMNodeText(node.text);
-                            }}
-                            className={cn(
-                              "truncate cursor-pointer select-none font-bold text-sm",
-                              node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
-                            )}
+                          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                            <span className="text-[7.5px] text-black/45 dark:text-white/40 font-black uppercase tracking-wider text-left pl-1">Nội dung nhánh</span>
+                            <input
+                              autoFocus
+                              value={renameMNodeText}
+                              onChange={(e) => setRenameMNodeText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameMNode(node.id, renameMNodeText, renameMNodePriority);
+                                if (e.key === 'Escape') setRenamingMNodeId(null);
+                              }}
+                              className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs font-bold rounded px-2.5 py-1 text-black dark:text-white focus:outline-none focus:border-blue-500"
+                              placeholder="Tên nhánh..."
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleRenameMNode(node.id, renameMNodeText, renameMNodePriority)}
+                            className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer self-end h-[26px]"
                           >
-                            {node.text}
-                          </span>
+                            Lưu
+                          </button>
+                          <button
+                            onClick={() => setRenamingMNodeId(null)}
+                            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl text-black/40 dark:text-white/40 cursor-pointer self-end h-[26px] flex items-center justify-center"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       )}
+
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
+                        {!isRoot && (
+                          <span className="px-2 py-0.5 bg-blue-500/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300 rounded-md text-xs font-black shrink-0 select-none border border-blue-500/10 shadow-sm">
+                            {getNodePriorityIndex(node)}
+                          </span>
+                        )}
+                        <span 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingMNodeId(node.id);
+                            setRenameMNodeText(node.text);
+                            setRenameMNodePriority(node.priority || 1);
+                          }}
+                          className={cn(
+                            "cursor-pointer select-none font-bold text-sm whitespace-normal break-words py-0.5 text-center flex-1",
+                            node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
+                          )}
+                        >
+                          {node.text}
+                        </span>
+                      </div>
 
                       {/* Completed Corner Badge */}
                       {node.isCompleted && (
@@ -2636,6 +2759,7 @@ export default function App() {
                               e.stopPropagation();
                               setRenamingMNodeId(node.id);
                               setRenameMNodeText(node.text);
+                              setRenameMNodePriority(node.priority || 1);
                             }}
                             className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white cursor-pointer"
                             title="Đổi tên"
