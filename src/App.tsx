@@ -388,6 +388,16 @@ export default function App() {
     }));
     setRenamingMNodeId(null);
   };
+
+  const handleToggleMNodeComplete = (nodeId: string) => {
+    setMindmapNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        return { ...n, isCompleted: !n.isCompleted };
+      }
+      return n;
+    }));
+  };
+
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -2522,7 +2532,8 @@ export default function App() {
                       key={node.id}
                       className={cn(
                         "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
-                        nodeStyle.bgClass
+                        nodeStyle.bgClass,
+                        node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5"
                       )}
                       style={{ 
                         left: node.x + panOffset.x, 
@@ -2564,20 +2575,51 @@ export default function App() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span 
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingMNodeId(node.id);
-                            setRenameMNodeText(node.text);
-                          }}
-                          className="flex-1 truncate text-center cursor-pointer"
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-center">
+                          <span 
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setRenamingMNodeId(node.id);
+                              setRenameMNodeText(node.text);
+                            }}
+                            className={cn(
+                              "truncate cursor-pointer select-none font-bold text-xs",
+                              node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
+                            )}
+                          >
+                            {node.text}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Completed Corner Badge */}
+                      {node.isCompleted && (
+                        <div 
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 dark:bg-emerald-400 text-white dark:text-slate-950 rounded-full flex items-center justify-center shadow-md shadow-emerald-500/20 border border-white dark:border-slate-900 z-20 animate-in zoom-in duration-200"
+                          title="Đã hoàn thành"
                         >
-                          {node.text}
-                        </span>
+                          <Check className="w-3.5 h-3.5 stroke-[3.5]" />
+                        </div>
                       )}
 
                       {!isNodeRenaming && (
                         <div className="absolute top-[-30px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-black/10 dark:border-white/10 rounded-lg p-1 shadow-md flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMNodeComplete(node.id);
+                            }}
+                            className={cn(
+                              "p-1 rounded cursor-pointer transition-colors",
+                              node.isCompleted 
+                                ? "hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-500" 
+                                : "hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-black/40 dark:text-white/40 hover:text-emerald-500 dark:hover:text-emerald-400"
+                            )}
+                            title={node.isCompleted ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                          
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2588,6 +2630,7 @@ export default function App() {
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
+                          
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

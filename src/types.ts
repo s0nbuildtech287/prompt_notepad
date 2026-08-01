@@ -23,6 +23,7 @@ export interface MindmapNode {
   type?: 'root' | 'main' | 'sub';
   noteId?: string;
   topicId?: string;
+  isCompleted?: boolean;
 }
 
 export interface AppData {
