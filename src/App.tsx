@@ -471,6 +471,16 @@ export default function App() {
     return result || 'A';
   };
 
+  const estimateNodeHeight = (node: MindmapNode): number => {
+    const isRoot = !node.parentId;
+    const limit = isRoot ? 22 : 16;
+    const textLen = node.text.length;
+    if (textLen <= limit) return 40;
+    if (textLen <= limit * 2) return 60;
+    if (textLen <= limit * 3) return 80;
+    return 100;
+  };
+
   const getNodePriorityIndex = (node: MindmapNode): string => {
     const depth = getNodeDepth(node);
     if (depth === 0) return '';
@@ -589,15 +599,6 @@ export default function App() {
     const siblingSpacing = 65; // Tăng khoảng cách giãn cách dọc giữa các nhánh để tránh dính nhau
     const horizontalSpacing = 240; 
     const rootSpacing = 120; // Tăng khoảng cách dọc giữa các nhánh chính
-
-    // Hàm ước lượng chiều cao thực tế của node dựa trên độ dài nội dung chữ (phòng trường hợp text xuống dòng)
-    const estimateNodeHeight = (node: MindmapNode): number => {
-      const textLen = node.text.length;
-      if (textLen <= 25) return 40;
-      if (textLen <= 50) return 60;
-      if (textLen <= 75) return 80;
-      return 100;
-    };
 
     const nodeHeights = new Map<string, number>();
 
@@ -2889,10 +2890,10 @@ export default function App() {
                     const parent = mindmapNodes.find(n => n.id === node.parentId);
                     if (!parent) return null;
 
-                    const parentW = parent.type === 'root' ? 180 : 160;
-                    const parentH = 40;
-                    const childW = node.type === 'root' ? 180 : 160;
-                    const childH = 40;
+                    const parentW = !parent.parentId ? 180 : 200;
+                    const parentH = estimateNodeHeight(parent);
+                    const childW = !node.parentId ? 180 : 200;
+                    const childH = estimateNodeHeight(node);
 
                     let startX, startY, endX, endY;
                     if (node.x > parent.x + (parentW / 2)) {
@@ -2930,7 +2931,7 @@ export default function App() {
                     const isNodeRenaming = renamingMNodeId === node.id;
                     const nodeStyle = getNodeStyles(node);
                     const isRoot = !node.parentId;
-                    const nodeWidth = isRoot ? 180 : 160;
+                    const nodeWidth = isRoot ? 180 : 200;
                     
                     return (
                       <div
@@ -2945,8 +2946,8 @@ export default function App() {
                           left: node.x, 
                           top: node.y,
                           minWidth: `${nodeWidth}px`,
-                          width: 'max-content',
-                          maxWidth: '280px',
+                          width: `${nodeWidth}px`,
+                          maxWidth: `${nodeWidth}px`,
                           minHeight: '40px',
                           height: 'auto',
                           cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
