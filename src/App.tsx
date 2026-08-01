@@ -1769,7 +1769,7 @@ export default function App() {
       {activeTab === 'plans' && (
         <aside className="w-72 border-r border-black/5 dark:border-r-white/5 bg-white dark:bg-slate-950 flex flex-col">
           <div className="p-6">
-            <h1 className="font-bold text-lg tracking-tight text-black dark:text-white">Make your plan</h1>
+            <h1 className="font-bold text-lg tracking-tight text-black dark:text-white uppercase">MAKE YOUR PLAN</h1>
           </div>
 
           <div className="px-4 mb-4">
