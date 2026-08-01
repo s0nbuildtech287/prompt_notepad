@@ -21,6 +21,8 @@ export interface MindmapNode {
   x: number;
   y: number;
   type?: 'root' | 'main' | 'sub';
+  noteId?: string;
+  topicId?: string;
 }
 
 export interface AppData {

@@ -8,6 +8,7 @@ import {
   Trash2, 
   Edit3, 
   ChevronRight, 
+  ChevronDown,
   MoreVertical,
   Save,
   X,
@@ -188,6 +189,9 @@ export default function App() {
   };
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const activeNote = useMemo(() => 
+    data.notes.find(n => n.id === selectedNoteId) || null
+  , [data.notes, selectedNoteId]);
   const handleSelectNote = (noteId: string | null) => {
     setSelectedNoteId(noteId);
     if (noteId) {
@@ -210,18 +214,45 @@ export default function App() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Mindmap States
-  const mindmapNodes = data.mindmapNodes || [];
+  const [selectedMindmapNoteId, setSelectedMindmapNoteId] = useState<string | null>(null);
+
+  const activeMindmapNoteId = useMemo(() => {
+    if (selectedMindmapNoteId) return selectedMindmapNoteId;
+    if (selectedNoteId) {
+      const current = data.notes.find(n => n.id === selectedNoteId);
+      if (current) return current.parentNoteId || current.id;
+    }
+    const firstPlan = data.notes.find(n => !n.parentNoteId);
+    return firstPlan?.id || 'global';
+  }, [selectedMindmapNoteId, selectedNoteId, data.notes]);
+
+  const mindmapNodes = useMemo(() => {
+    return (data.mindmapNodes || []).filter(n => n.noteId === activeMindmapNoteId);
+  }, [data.mindmapNodes, activeMindmapNoteId]);
+
   const setMindmapNodes = (newNodes: MindmapNode[] | ((prev: MindmapNode[]) => MindmapNode[])) => {
     setData(prev => {
-      const nextNodes = typeof newNodes === 'function' ? newNodes(prev.mindmapNodes || []) : newNodes;
-      const newData = { ...prev, mindmapNodes: nextNodes };
+      const currentActiveNodes = (prev.mindmapNodes || []).filter(n => n.noteId === activeMindmapNoteId);
+      const nextActiveNodes = typeof newNodes === 'function' ? newNodes(currentActiveNodes) : newNodes;
+      
+      const sanitizedActiveNodes = nextActiveNodes.map(n => ({
+        ...n,
+        noteId: n.noteId || activeMindmapNoteId
+      }));
+
+      const otherNodes = (prev.mindmapNodes || []).filter(n => n.noteId !== activeMindmapNoteId);
+      const mergedNodes = [...otherNodes, ...sanitizedActiveNodes];
+
+      const newData = { ...prev, mindmapNodes: mergedNodes };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      
       // Async save to backend
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newData),
       }).catch(err => console.error(err));
+      
       return newData;
     });
   };
@@ -233,6 +264,7 @@ export default function App() {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isMindmapSelectOpen, setIsMindmapSelectOpen] = useState(false);
 
   // Theme State & effect
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -300,13 +332,16 @@ export default function App() {
   };
 
   const handleAddRootNode = () => {
+    const activeNoteObj = data.notes.find(n => n.id === activeMindmapNoteId);
     const newNode: MindmapNode = {
       id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       text: 'Ý tưởng mới',
       parentId: null,
       x: 150 - panOffset.x,
       y: 200 - panOffset.y,
-      type: 'root'
+      type: 'root',
+      noteId: activeMindmapNoteId,
+      topicId: activeNoteObj?.topicId
     };
     setMindmapNodes(prev => [...prev, newNode]);
   };
@@ -314,13 +349,16 @@ export default function App() {
   const handleAddSubNode = (parentId: string) => {
     const parent = mindmapNodes.find(n => n.id === parentId);
     if (!parent) return;
+    const activeNoteObj = data.notes.find(n => n.id === activeMindmapNoteId);
     const newNode: MindmapNode = {
       id: 'mnode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       text: 'Nhánh con mới',
       parentId,
       x: parent.x + 220,
       y: parent.y + (Math.random() * 80 - 40),
-      type: 'sub'
+      type: 'sub',
+      noteId: activeMindmapNoteId,
+      topicId: activeNoteObj?.topicId
     };
     setMindmapNodes(prev => [...prev, newNode]);
   };
@@ -350,40 +388,6 @@ export default function App() {
     }));
     setRenamingMNodeId(null);
   };
-
-  const handleSyncFromProject = () => {
-    const newNodes: MindmapNode[] = [];
-    let currentY = 80;
-    
-    data.topics.forEach((topic, tIdx) => {
-      const topicNodeId = `topic_${topic.id}`;
-      newNodes.push({
-        id: topicNodeId,
-        text: topic.name,
-        parentId: null,
-        x: 100,
-        y: currentY,
-        type: 'root'
-      });
-      
-      const notes = data.notes.filter(n => n.topicId === topic.id);
-      notes.forEach((note, nIdx) => {
-        newNodes.push({
-          id: `note_${note.id}`,
-          text: note.title || 'Không tiêu đề',
-          parentId: topicNodeId,
-          x: 340,
-          y: currentY + (nIdx * 60) - ((notes.length - 1) * 30),
-          type: 'sub'
-        });
-      });
-      
-      currentY += Math.max(notes.length * 60, 100);
-    });
-    
-    setMindmapNodes(newNodes);
-  };
-
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -398,6 +402,21 @@ export default function App() {
       window.removeEventListener('click', handleOutsideClick);
     };
   }, [activePopover]);
+
+  useEffect(() => {
+    const handleOutsideSelectClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.mindmap-select-container')) {
+        setIsMindmapSelectOpen(false);
+      }
+    };
+    if (isMindmapSelectOpen) {
+      window.addEventListener('click', handleOutsideSelectClick);
+    }
+    return () => {
+      window.removeEventListener('click', handleOutsideSelectClick);
+    };
+  }, [isMindmapSelectOpen]);
 
   // Form states
   const [editNote, setEditNote] = useState<Partial<Note>>({});
@@ -620,7 +639,7 @@ export default function App() {
   const STORAGE_KEY = 'prompt_notepad_data';
 
   // Login states
-  const [isLoggedIn, setIsLoggedIn] = useState(() => sessionStorage.getItem('isLoggedIn') === 'true');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -721,7 +740,7 @@ export default function App() {
     setLoginError('');
     setTimeout(() => {
       if (loginUsername === 'xu4ns0n' && loginPassword === 'Sondeptrai123@k') {
-        sessionStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('isLoggedIn', 'true');
         setIsLoggedIn(true);
         setIsLoggingIn(false);
       } else {
@@ -732,7 +751,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('isLoggedIn');
     setIsLoggedIn(false);
     setLoginUsername('');
     setLoginPassword('');
@@ -816,6 +835,16 @@ export default function App() {
     fetchData();
     fetchAvailableModels();
   }, []);
+
+  useEffect(() => {
+    if (selectedNoteId) {
+      const note = data.notes.find(n => n.id === selectedNoteId);
+      if (note) {
+        const targetId = note.parentNoteId || note.id;
+        setSelectedMindmapNoteId(targetId);
+      }
+    }
+  }, [selectedNoteId, data.notes]);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1144,9 +1173,7 @@ export default function App() {
     saveData(newData);
   };
 
-  const activeNote = useMemo(() => 
-    data.notes.find(n => n.id === selectedNoteId) || null
-  , [data.notes, selectedNoteId]);
+
 
   const filteredNotesByTopic = (topicId: string) => {
     return data.notes
@@ -2288,25 +2315,85 @@ export default function App() {
         {activeTab === 'tree' && (
           <div className="flex-1 flex flex-col overflow-hidden relative select-none bg-[#F8F9FA] dark:bg-[#0B0F19]">
             {/* Header bar */}
-            <div className="h-16 border-b border-black/5 dark:border-b-white/5 bg-white dark:bg-slate-900 flex items-center justify-between px-8 shrink-0 relative z-20">
-              <div>
-                <h2 className="text-sm font-bold text-black dark:text-white flex items-center gap-2">
-                  <Network className="w-4 h-4 text-black/50 dark:text-white/50" />
-                  Sơ đồ cây & Mindmap tương tác
-                </h2>
-                <p className="text-[10px] text-black/40 dark:text-white/45">Kéo thả tự do, tạo nhánh chính/phụ và đồng bộ hóa tiến độ</p>
+            <div className="h-16 border-b border-black/5 dark:border-b-white/5 bg-white dark:bg-slate-900 flex items-center justify-between px-8 shrink-0 relative z-20 gap-4">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h2 className="text-sm font-bold text-black dark:text-white flex items-center gap-2">
+                    <Network className="w-4 h-4 text-black/50 dark:text-white/50" />
+                    Sơ đồ cây & Mindmap
+                  </h2>
+                  <p className="text-[10px] text-black/40 dark:text-white/45">Kéo thả tự do, tạo các nhánh chính/phụ liên kết ý tưởng</p>
+                </div>
+
+                <div className="h-6 w-[1px] bg-black/10 dark:bg-white/10" />
+
+                {/* Custom Grouped Dropdown for Projects & Plans */}
+                <div className="relative mindmap-select-container">
+                  <button
+                    onClick={() => setIsMindmapSelectOpen(!isMindmapSelectOpen)}
+                    className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/5 dark:border-white/5 rounded-xl px-3 py-1.5 text-xs font-bold text-black dark:text-white transition-all cursor-pointer select-none"
+                  >
+                    <span className="text-[9px] text-black/40 dark:text-white/45 font-black uppercase tracking-wider">Kế hoạch:</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold truncate max-w-[150px]">
+                      {data.notes.find(n => n.id === activeMindmapNoteId)?.title || 'Chung (Global)'}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-black/30 dark:text-white/30 transition-transform duration-200" style={{ transform: isMindmapSelectOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                  </button>
+
+                  {isMindmapSelectOpen && (
+                    <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 shadow-2xl rounded-2xl py-2 z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+                      {data.topics.map(topic => {
+                        const topicNotes = data.notes.filter(n => n.topicId === topic.id && !n.parentNoteId);
+                        if (topicNotes.length === 0) return null;
+                        return (
+                          <div key={topic.id} className="mb-2 last:mb-0">
+                            {/* Group Header (Dự án chính) */}
+                            <div className="px-3 py-1.5 text-[9px] font-black text-black/45 dark:text-white/40 uppercase tracking-widest flex items-center gap-1.5 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] sticky top-0 z-10 backdrop-blur-md">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>{topic.name}</span>
+                            </div>
+                            
+                            {/* Group Items (Kế hoạch con) */}
+                            <div className="mt-1 space-y-0.5 px-1">
+                              {topicNotes.map(note => {
+                                const isActive = note.id === activeMindmapNoteId;
+                                return (
+                                  <button
+                                    key={note.id}
+                                    onClick={() => {
+                                      setSelectedMindmapNoteId(note.id);
+                                      setIsMindmapSelectOpen(false);
+                                    }}
+                                    className={cn(
+                                      "w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer",
+                                      isActive
+                                        ? "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400"
+                                        : "text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <div className="w-1 h-1 rounded-full bg-blue-500/30" />
+                                      <span className="truncate">{note.title}</span>
+                                    </div>
+                                    {isActive && <div className="w-1 h-1 rounded-full bg-blue-500" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {data.notes.filter(n => !n.parentNoteId).length === 0 && (
+                        <div className="px-4 py-3 text-xs text-black/40 dark:text-white/40 text-center">
+                          Chưa có kế hoạch nào
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSyncFromProject}
-                  className="px-3.5 py-1.5 border border-black/5 dark:border-white/5 hover:border-black/15 dark:hover:border-white/15 bg-white dark:bg-slate-900 rounded-xl text-xs font-bold text-black/75 dark:text-white/75 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-1.5"
-                  title="Tự động đồng bộ sơ đồ từ danh sách dự án bên trái"
-                >
-                  <Network className="w-3.5 h-3.5 text-emerald-500" />
-                  Đồng bộ từ Dự án
-                </button>
-                
                 <button
                   onClick={handleAddRootNode}
                   className="px-3.5 py-1.5 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
@@ -2537,21 +2624,13 @@ export default function App() {
                   </div>
                   <h3 className="text-base font-bold text-black dark:text-white mb-1">Mindmap của bạn đang trống</h3>
                   <p className="text-xs text-black/40 dark:text-white/40 max-w-sm mb-6 leading-relaxed">
-                    Bạn có thể tự tạo nhánh chính hoặc đồng bộ hóa trực tiếp từ cấu trúc Dự án & Kế hoạch bên cột trái.
+                    Sơ đồ cây của dự án này đang trống. Nhấp "Thêm nhánh chính" dưới đây để bắt đầu phác thảo ý tưởng.
                   </p>
                   
                   <div className="flex gap-3 pointer-events-auto">
                     <button
-                      onClick={handleSyncFromProject}
-                      className="px-4 py-2 border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 bg-white dark:bg-slate-900 text-black/70 dark:text-white/70 transition-all cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Network className="w-3.5 h-3.5 text-emerald-500" />
-                      Đồng bộ từ Dự án
-                    </button>
-                    
-                    <button
                       onClick={handleAddRootNode}
-                      className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Thêm nhánh chính
