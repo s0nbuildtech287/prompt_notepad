@@ -2568,7 +2568,7 @@ export default function App() {
                             if (e.key === 'Escape') setRenamingMNodeId(null);
                           }}
                           className={cn(
-                            "w-full bg-transparent border-none focus:ring-0 focus:outline-none p-0 text-xs font-normal text-center rounded",
+                            "w-full bg-transparent border-none focus:ring-0 focus:outline-none p-0 text-sm font-bold text-center rounded",
                             isRoot ? "text-white" : "text-inherit"
                           )}
                           style={{ outline: 'none' }}
@@ -2583,7 +2583,7 @@ export default function App() {
                               setRenameMNodeText(node.text);
                             }}
                             className={cn(
-                              "truncate cursor-pointer select-none font-bold text-xs",
+                              "truncate cursor-pointer select-none font-bold text-sm",
                               node.isCompleted ? "line-through text-emerald-600 dark:text-emerald-400" : ""
                             )}
                           >
