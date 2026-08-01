@@ -40,7 +40,9 @@ import {
   Quote,
   Sun,
   Moon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Link2,
+  Unlink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -269,6 +271,7 @@ export default function App() {
   const [isMindmapSelectOpen, setIsMindmapSelectOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'one-side' | 'two-sides'>('one-side');
   const [zoomScale, setZoomScale] = useState<number>(1.0);
+  const [linkingParentId, setLinkingParentId] = useState<string | null>(null);
 
   // Theme State & effect
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -585,6 +588,51 @@ export default function App() {
       }
       return n;
     }));
+  };
+
+  const handleConnectNodes = (parentId: string, childId: string) => {
+    if (parentId === childId) {
+      showToast('Không thể nối một nhánh vào chính nó!', 'error');
+      return;
+    }
+    // Cycle detection: make sure childId is not an ancestor of parentId
+    const isAncestor = (nodeId: string, potentialAncestor: string): boolean => {
+      let current = mindmapNodes.find(n => n.id === nodeId);
+      while (current && current.parentId) {
+        if (current.parentId === potentialAncestor) return true;
+        const additionals = current.additionalParentIds || [];
+        if (additionals.includes(potentialAncestor)) return true;
+        current = mindmapNodes.find(n => n.id === current!.parentId);
+      }
+      return false;
+    };
+    if (isAncestor(parentId, childId)) {
+      showToast('Không thể tạo liên kết vòng lặp trong sơ đồ!', 'error');
+      return;
+    }
+    setMindmapNodes(prev => prev.map(n => {
+      if (n.id === childId) {
+        const existing = n.additionalParentIds || [];
+        if (existing.includes(parentId) || n.parentId === parentId) {
+          showToast('Liên kết này đã tồn tại!', 'error');
+          return n;
+        }
+        return { ...n, additionalParentIds: [...existing, parentId] };
+      }
+      return n;
+    }));
+    showToast('Đã nối liên kết thành công!', 'success');
+    setLinkingParentId(null);
+  };
+
+  const handleDisconnectNode = (parentId: string, childId: string) => {
+    setMindmapNodes(prev => prev.map(n => {
+      if (n.id === childId) {
+        return { ...n, additionalParentIds: (n.additionalParentIds || []).filter(pid => pid !== parentId) };
+      }
+      return n;
+    }));
+    showToast('Đã gỡ liên kết!', 'success');
   };
 
   const handleAutoLayoutMindmap = (mode: 'one-side' | 'two-sides') => {
@@ -2890,7 +2938,26 @@ export default function App() {
                 }}
               />
 
-              {/* Scaled and Translated Canvas Container */}
+              {/* Linking Mode Banner */}
+              {linkingParentId !== null && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-auto animate-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-3 bg-violet-600 dark:bg-violet-700 text-white px-5 py-2.5 rounded-full shadow-xl shadow-violet-500/30 border border-violet-400/30 text-sm font-semibold">
+                    <Link2 className="w-4 h-4 shrink-0 animate-pulse" />
+                    <span>
+                      Đang liên kết từ <span className="font-black underline underline-offset-2">&quot;{mindmapNodes.find(n => n.id === linkingParentId)?.text}&quot;</span> — Click vào nhánh đích
+                    </span>
+                    <button
+                      onClick={() => setLinkingParentId(null)}
+                      className="ml-1 p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                      title="Hủy liên kết"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+
               <div 
                 className="absolute inset-0 pointer-events-none"
                 style={{ 
@@ -2900,6 +2967,11 @@ export default function App() {
               >
                 {/* Connecting lines SVG layer */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ overflow: 'visible' }}>
+                  <defs>
+                    <marker id="arrow-extra" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L8,3 z" fill="#818cf8" />
+                    </marker>
+                  </defs>
                   {mindmapNodes.map(node => {
                     if (!node.parentId) return null;
                     const parent = mindmapNodes.find(n => n.id === node.parentId);
@@ -2938,6 +3010,49 @@ export default function App() {
                       </g>
                     );
                   })}
+
+                  {/* Draw additional parent links (purple dashed arrows) */}
+                  {mindmapNodes.map(node => {
+                    const extras = node.additionalParentIds || [];
+                    if (extras.length === 0) return null;
+                    const childW = !node.parentId ? 180 : 200;
+                    const childH = estimateNodeHeight(node);
+
+                    return extras.map(extraParentId => {
+                      const extraParent = mindmapNodes.find(n => n.id === extraParentId);
+                      if (!extraParent) return null;
+                      const epW = !extraParent.parentId ? 180 : 200;
+                      const epH = estimateNodeHeight(extraParent);
+
+                      let sx, sy, ex, ey;
+                      if (node.x > extraParent.x + (epW / 2)) {
+                        sx = extraParent.x + epW;
+                        sy = extraParent.y + (epH / 2);
+                        ex = node.x;
+                        ey = node.y + (childH / 2);
+                      } else {
+                        sx = extraParent.x;
+                        sy = extraParent.y + (epH / 2);
+                        ex = node.x + childW;
+                        ey = node.y + (childH / 2);
+                      }
+
+                      return (
+                        <g key={`extra_${extraParentId}_${node.id}`}>
+                          <path
+                            d={getBezierPath(sx, sy, ex, ey)}
+                            fill="none"
+                            stroke="#818cf8"
+                            strokeWidth="2"
+                            strokeDasharray="4 4"
+                            markerEnd="url(#arrow-extra)"
+                            opacity="0.8"
+                          />
+                          <circle cx={sx} cy={sy} r="3" fill="#818cf8" opacity="0.7" />
+                        </g>
+                      );
+                    });
+                  })}
                 </svg>
 
                 {/* Rendering interactive nodes */}
@@ -2948,6 +3063,9 @@ export default function App() {
                     const isRoot = !node.parentId;
                     const nodeWidth = isRoot ? 180 : 200;
                     
+                    const isLinkingTarget = linkingParentId !== null && linkingParentId !== node.id;
+                    const hasExtraParents = (node.additionalParentIds || []).length > 0;
+
                     return (
                       <div
                         key={node.id}
@@ -2955,7 +3073,8 @@ export default function App() {
                           "absolute rounded-2xl flex items-center justify-between pointer-events-auto px-4 py-2 border transition-all duration-75 group shadow-sm select-none",
                           nodeStyle.bgClass,
                           node.isCompleted && "border-emerald-500/50 dark:border-emerald-400/40 bg-emerald-50/5 dark:bg-emerald-950/10 shadow-emerald-500/5",
-                          isNodeRenaming && "ring-2 ring-blue-500 border-blue-500"
+                          isNodeRenaming && "ring-2 ring-blue-500 border-blue-500",
+                          isLinkingTarget && "ring-2 ring-violet-500/70 border-violet-400 cursor-crosshair"
                         )}
                         style={{ 
                           left: node.x, 
@@ -2965,10 +3084,17 @@ export default function App() {
                           maxWidth: `${nodeWidth}px`,
                           minHeight: '40px',
                           height: 'auto',
-                          cursor: draggedNodeId === node.id ? 'grabbing' : 'grab'
+                          cursor: draggedNodeId === node.id ? 'grabbing' : (isLinkingTarget ? 'crosshair' : 'grab')
+                        }}
+                        onClick={(e) => {
+                          if (linkingParentId !== null && linkingParentId !== node.id) {
+                            e.stopPropagation();
+                            handleConnectNodes(linkingParentId, node.id);
+                          }
                         }}
                         onPointerDown={(e) => {
                           e.stopPropagation();
+                          if (linkingParentId !== null) return;
                           if (isNodeRenaming) return;
                           setDraggedNodeId(node.id);
                           
@@ -3035,6 +3161,14 @@ export default function App() {
                           {!isRoot && (
                             <span className="px-2 py-0.5 bg-blue-500/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300 rounded-md text-xs font-black shrink-0 select-none border border-blue-500/10 shadow-sm">
                               {getNodePriorityIndex(node)}
+                            </span>
+                          )}
+                          {hasExtraParents && (
+                            <span
+                              className="px-1 py-0.5 bg-violet-500/15 text-violet-600 dark:bg-violet-400/20 dark:text-violet-300 rounded-md shrink-0 select-none border border-violet-500/10 shadow-sm"
+                              title={`Nhánh dùng chung - được nối bởi ${(node.additionalParentIds || []).length + 1} nhánh cha`}
+                            >
+                              <Link2 className="w-3 h-3" />
                             </span>
                           )}
                           <span 
@@ -3109,6 +3243,21 @@ export default function App() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setLinkingParentId(node.id);
+                              }}
+                              className={cn(
+                                "p-1 rounded cursor-pointer transition-colors",
+                                linkingParentId === node.id
+                                  ? "bg-violet-100 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400"
+                                  : "hover:bg-violet-50 dark:hover:bg-violet-950/20 text-black/40 dark:text-white/40 hover:text-violet-600 dark:hover:text-violet-400"
+                              )}
+                              title="Nối liên kết tới nhánh khác"
+                            >
+                              <Link2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleDeleteMNode(node.id);
                               }}
                               className="p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-red-500 cursor-pointer"
@@ -3116,6 +3265,30 @@ export default function App() {
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
+                          </div>
+                        )}
+
+                        {/* Additional Parents Unlink Panel - shown on hover when node has extra parents */}
+                        {hasExtraParents && !isNodeRenaming && (
+                          <div className="absolute bottom-[-52px] left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-700/50 rounded-xl p-1.5 shadow-lg flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto min-w-max">
+                            <span className="text-[9px] text-violet-600 dark:text-violet-400 font-black uppercase tracking-wider px-1">Cha phụ (liên kết)</span>
+                            {(node.additionalParentIds || []).map(pid => {
+                              const pNode = mindmapNodes.find(n => n.id === pid);
+                              if (!pNode) return null;
+                              return (
+                                <div key={pid} className="flex items-center gap-1.5 px-1">
+                                  <Link2 className="w-2.5 h-2.5 text-violet-400 shrink-0" />
+                                  <span className="text-[10px] text-black/60 dark:text-white/60 flex-1 truncate max-w-[120px]">{pNode.text}</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDisconnectNode(pid, node.id); }}
+                                    className="p-0.5 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-red-400 hover:text-red-500 cursor-pointer transition-colors"
+                                    title="Gỡ liên kết"
+                                  >
+                                    <Unlink className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

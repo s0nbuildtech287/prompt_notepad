@@ -18,6 +18,7 @@ export interface MindmapNode {
   id: string;
   text: string;
   parentId: string | null;
+  additionalParentIds?: string[];
   x: number;
   y: number;
   type?: 'root' | 'main' | 'sub';
