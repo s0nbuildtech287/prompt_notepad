@@ -586,26 +586,40 @@ export default function App() {
     const roots = activeNodes.filter(n => !n.parentId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
     if (roots.length === 0) return;
 
-    const siblingSpacing = 50; 
+    const siblingSpacing = 65; // Tăng khoảng cách giãn cách dọc giữa các nhánh để tránh dính nhau
     const horizontalSpacing = 240; 
-    const rootSpacing = 100;
+    const rootSpacing = 120; // Tăng khoảng cách dọc giữa các nhánh chính
+
+    // Hàm ước lượng chiều cao thực tế của node dựa trên độ dài nội dung chữ (phòng trường hợp text xuống dòng)
+    const estimateNodeHeight = (node: MindmapNode): number => {
+      const textLen = node.text.length;
+      if (textLen <= 25) return 40;
+      if (textLen <= 50) return 60;
+      if (textLen <= 75) return 80;
+      return 100;
+    };
 
     const nodeHeights = new Map<string, number>();
 
-    // Tính toán đệ quy chiều cao cây con
+    // Tính toán đệ quy chiều cao cây con dựa trên độ cao ước lượng thực tế
     const calculateSubtreeHeights = (nodeId: string): number => {
+      const node = activeNodes.find(n => n.id === nodeId);
+      const baseHeight = node ? estimateNodeHeight(node) : 40;
+
       const children = activeNodes.filter(n => n.parentId === nodeId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
       if (children.length === 0) {
-        nodeHeights.set(nodeId, 40);
-        return 40;
+        nodeHeights.set(nodeId, baseHeight);
+        return baseHeight;
       }
       let totalHeight = 0;
       children.forEach(child => {
         totalHeight += calculateSubtreeHeights(child.id);
       });
       totalHeight += (children.length - 1) * siblingSpacing;
-      nodeHeights.set(nodeId, totalHeight);
-      return totalHeight;
+      
+      const finalHeight = Math.max(baseHeight, totalHeight);
+      nodeHeights.set(nodeId, finalHeight);
+      return finalHeight;
     };
 
     // Hàm lấy chiều cao của một nhóm nhánh con
@@ -615,7 +629,6 @@ export default function App() {
       return sum + (nodes.length - 1) * siblingSpacing;
     };
 
-    // Tính toán chiều cao cho các nhánh gốc tùy thuộc chế độ
     // Tính toán chiều cao cho các nhánh gốc tùy thuộc chế độ
     roots.forEach(root => {
       if (mode === 'two-sides') {
@@ -629,12 +642,17 @@ export default function App() {
         for (let i = 0; i < maxLen; i++) {
           const rH = rightChildren[i] ? calculateSubtreeHeights(rightChildren[i].id) : 0;
           const lH = leftChildren[i] ? calculateSubtreeHeights(leftChildren[i].id) : 0;
-          totalBlockHeight += Math.max(rH, lH, 40);
+          const rNode = rightChildren[i];
+          const lNode = leftChildren[i];
+          const rBase = rNode ? estimateNodeHeight(rNode) : 40;
+          const lBase = lNode ? estimateNodeHeight(lNode) : 40;
+          totalBlockHeight += Math.max(rH, lH, rBase, lBase);
         }
         if (maxLen > 0) {
           totalBlockHeight += (maxLen - 1) * siblingSpacing;
         }
-        nodeHeights.set(root.id, Math.max(totalBlockHeight, 40));
+        const rootBase = estimateNodeHeight(root);
+        nodeHeights.set(root.id, Math.max(totalBlockHeight, rootBase));
       } else {
         calculateSubtreeHeights(root.id);
       }
@@ -656,7 +674,7 @@ export default function App() {
       let currentY = startY - totalHeight / 2;
 
       children.forEach(child => {
-        const childHeight = nodeHeights.get(child.id) || 40;
+        const childHeight = nodeHeights.get(child.id) || estimateNodeHeight(child);
         const childY = currentY + childHeight / 2;
         const childX = startX + direction * horizontalSpacing;
 
@@ -668,7 +686,7 @@ export default function App() {
     };
 
     // Tính tổng chiều cao của tất cả các nhánh gốc
-    const totalRootsHeight = roots.reduce((sum, root) => sum + (nodeHeights.get(root.id) || 40), 0) + (roots.length - 1) * rootSpacing;
+    const totalRootsHeight = roots.reduce((sum, root) => sum + (nodeHeights.get(root.id) || estimateNodeHeight(root)), 0) + (roots.length - 1) * rootSpacing;
     
     // Nếu xếp 2 bên, đặt nhánh gốc ở trục giữa (~450px), ngược lại đặt ở rìa trái (~100px)
     const screenStartX = mode === 'two-sides' ? 450 - panOffset.x : 100 - panOffset.x;
@@ -676,7 +694,7 @@ export default function App() {
     let rootY = screenStartY - totalRootsHeight / 2;
 
     roots.forEach(root => {
-      const rootHeight = nodeHeights.get(root.id) || 40;
+      const rootHeight = nodeHeights.get(root.id) || estimateNodeHeight(root);
       const rootX = screenStartX;
       const rootYCoord = rootY + rootHeight / 2;
 
@@ -694,8 +712,8 @@ export default function App() {
         const rowHeights: number[] = [];
         let totalBlockHeight = 0;
         for (let i = 0; i < maxLen; i++) {
-          const rH = rightChildren[i] ? (nodeHeights.get(rightChildren[i].id) || 40) : 0;
-          const lH = leftChildren[i] ? (nodeHeights.get(leftChildren[i].id) || 40) : 0;
+          const rH = rightChildren[i] ? (nodeHeights.get(rightChildren[i].id) || estimateNodeHeight(rightChildren[i])) : 0;
+          const lH = leftChildren[i] ? (nodeHeights.get(leftChildren[i].id) || estimateNodeHeight(leftChildren[i])) : 0;
           const maxH = Math.max(rH, lH, 40);
           rowHeights.push(maxH);
           totalBlockHeight += maxH;
