@@ -266,6 +266,7 @@ export default function App() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isMindmapSelectOpen, setIsMindmapSelectOpen] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'one-side' | 'two-sides'>('one-side');
 
   // Theme State & effect
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -478,6 +479,171 @@ export default function App() {
         return { ...n, isCompleted: !n.isCompleted };
       }
       return n;
+    }));
+  };
+
+  const handleAutoLayoutMindmap = (mode: 'one-side' | 'two-sides') => {
+    setLayoutMode(mode);
+    const activeNodes = mindmapNodes;
+    if (activeNodes.length === 0) return;
+
+    // Lọc các nhánh gốc (parentId === null) và sắp xếp theo thứ tự ưu tiên
+    const roots = activeNodes.filter(n => !n.parentId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
+    if (roots.length === 0) return;
+
+    const siblingSpacing = 50; 
+    const horizontalSpacing = 240; 
+    const rootSpacing = 100;
+
+    const nodeHeights = new Map<string, number>();
+
+    // Tính toán đệ quy chiều cao cây con
+    const calculateSubtreeHeights = (nodeId: string): number => {
+      const children = activeNodes.filter(n => n.parentId === nodeId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
+      if (children.length === 0) {
+        nodeHeights.set(nodeId, 40);
+        return 40;
+      }
+      let totalHeight = 0;
+      children.forEach(child => {
+        totalHeight += calculateSubtreeHeights(child.id);
+      });
+      totalHeight += (children.length - 1) * siblingSpacing;
+      nodeHeights.set(nodeId, totalHeight);
+      return totalHeight;
+    };
+
+    // Hàm lấy chiều cao của một nhóm nhánh con
+    const getGroupHeight = (nodes: MindmapNode[]): number => {
+      if (nodes.length === 0) return 0;
+      const sum = nodes.reduce((acc, n) => acc + calculateSubtreeHeights(n.id), 0);
+      return sum + (nodes.length - 1) * siblingSpacing;
+    };
+
+    // Tính toán chiều cao cho các nhánh gốc tùy thuộc chế độ
+    // Tính toán chiều cao cho các nhánh gốc tùy thuộc chế độ
+    roots.forEach(root => {
+      if (mode === 'two-sides') {
+        const children = activeNodes.filter(n => n.parentId === root.id).sort((a, b) => (a.priority || 1) - (b.priority || 1));
+        const mid = Math.ceil(children.length / 2);
+        const rightChildren = children.slice(0, mid);
+        const leftChildren = children.slice(mid);
+
+        const maxLen = Math.max(rightChildren.length, leftChildren.length);
+        let totalBlockHeight = 0;
+        for (let i = 0; i < maxLen; i++) {
+          const rH = rightChildren[i] ? calculateSubtreeHeights(rightChildren[i].id) : 0;
+          const lH = leftChildren[i] ? calculateSubtreeHeights(leftChildren[i].id) : 0;
+          totalBlockHeight += Math.max(rH, lH, 40);
+        }
+        if (maxLen > 0) {
+          totalBlockHeight += (maxLen - 1) * siblingSpacing;
+        }
+        nodeHeights.set(root.id, Math.max(totalBlockHeight, 40));
+      } else {
+        calculateSubtreeHeights(root.id);
+      }
+    });
+
+    const newPositions = new Map<string, { x: number, y: number }>();
+
+    // Đệ quy xếp vị trí các nhánh con theo hướng cụ thể
+    const positionSubtree = (
+      nodeId: string, 
+      startX: number, 
+      startY: number,
+      direction: number // 1: Phải, -1: Trái
+    ) => {
+      const children = activeNodes.filter(n => n.parentId === nodeId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
+      if (children.length === 0) return;
+
+      const totalHeight = nodeHeights.get(nodeId) || 0;
+      let currentY = startY - totalHeight / 2;
+
+      children.forEach(child => {
+        const childHeight = nodeHeights.get(child.id) || 40;
+        const childY = currentY + childHeight / 2;
+        const childX = startX + direction * horizontalSpacing;
+
+        newPositions.set(child.id, { x: childX, y: childY });
+        positionSubtree(child.id, childX, childY, direction);
+
+        currentY += childHeight + siblingSpacing;
+      });
+    };
+
+    // Tính tổng chiều cao của tất cả các nhánh gốc
+    const totalRootsHeight = roots.reduce((sum, root) => sum + (nodeHeights.get(root.id) || 40), 0) + (roots.length - 1) * rootSpacing;
+    
+    // Nếu xếp 2 bên, đặt nhánh gốc ở trục giữa (~450px), ngược lại đặt ở rìa trái (~100px)
+    const screenStartX = mode === 'two-sides' ? 450 - panOffset.x : 100 - panOffset.x;
+    const screenStartY = 300 - panOffset.y;
+    let rootY = screenStartY - totalRootsHeight / 2;
+
+    roots.forEach(root => {
+      const rootHeight = nodeHeights.get(root.id) || 40;
+      const rootX = screenStartX;
+      const rootYCoord = rootY + rootHeight / 2;
+
+      newPositions.set(root.id, { x: rootX, y: rootYCoord });
+
+      if (mode === 'two-sides') {
+        const children = activeNodes.filter(n => n.parentId === root.id).sort((a, b) => (a.priority || 1) - (b.priority || 1));
+        const mid = Math.ceil(children.length / 2);
+        const rightChildren = children.slice(0, mid);
+        const leftChildren = children.slice(mid);
+
+        const maxLen = Math.max(rightChildren.length, leftChildren.length);
+        
+        // Lấy lại danh sách chiều cao các hàng
+        const rowHeights: number[] = [];
+        let totalBlockHeight = 0;
+        for (let i = 0; i < maxLen; i++) {
+          const rH = rightChildren[i] ? (nodeHeights.get(rightChildren[i].id) || 40) : 0;
+          const lH = leftChildren[i] ? (nodeHeights.get(leftChildren[i].id) || 40) : 0;
+          const maxH = Math.max(rH, lH, 40);
+          rowHeights.push(maxH);
+          totalBlockHeight += maxH;
+        }
+        if (maxLen > 0) {
+          totalBlockHeight += (maxLen - 1) * siblingSpacing;
+        }
+
+        let currentY = rootYCoord - totalBlockHeight / 2;
+        for (let i = 0; i < maxLen; i++) {
+          const rowH = rowHeights[i];
+          const rowY = currentY + rowH / 2;
+
+          if (rightChildren[i]) {
+            const child = rightChildren[i];
+            const childX = rootX + horizontalSpacing;
+            newPositions.set(child.id, { x: childX, y: rowY });
+            positionSubtree(child.id, childX, rowY, 1);
+          }
+
+          if (leftChildren[i]) {
+            const child = leftChildren[i];
+            const childX = rootX - horizontalSpacing;
+            newPositions.set(child.id, { x: childX, y: rowY });
+            positionSubtree(child.id, childX, rowY, -1);
+          }
+
+          currentY += rowH + siblingSpacing;
+        }
+      } else {
+        positionSubtree(root.id, rootX, rootYCoord, 1);
+      }
+
+      rootY += rootHeight + rootSpacing;
+    });
+
+    // Cập nhật lại tọa độ các nhánh
+    setMindmapNodes(prev => prev.map(node => {
+      const pos = newPositions.get(node.id);
+      if (pos) {
+        return { ...node, x: pos.x, y: pos.y };
+      }
+      return node;
     }));
   };
 
@@ -2484,6 +2650,37 @@ export default function App() {
                     </div>
                   )}
                 </div>
+
+                {mindmapNodes.length > 0 && (
+                  <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-xl p-0.5 shadow-sm">
+                    <button
+                      onClick={() => handleAutoLayoutMindmap('one-side')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center gap-1",
+                        layoutMode === 'one-side' 
+                          ? "bg-blue-500 text-white shadow-sm"
+                          : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white"
+                      )}
+                      title="Cân đối sơ đồ về 1 bên (Trái sang Phải)"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Cân đối 1 bên
+                    </button>
+                    <button
+                      onClick={() => handleAutoLayoutMindmap('two-sides')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center gap-1",
+                        layoutMode === 'two-sides' 
+                          ? "bg-blue-500 text-white shadow-sm"
+                          : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white"
+                      )}
+                      title="Cân đối sơ đồ đều về 2 bên (Trái và Phải)"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Cân đối 2 bên
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div className="flex items-center gap-2">
