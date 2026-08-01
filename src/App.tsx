@@ -668,6 +668,9 @@ export default function App() {
       startY: number,
       direction: number // 1: Phải, -1: Trái
     ) => {
+      const parent = activeNodes.find(n => n.id === nodeId);
+      const parentW = parent ? (!parent.parentId ? 180 : 200) : 200;
+
       const children = activeNodes.filter(n => n.parentId === nodeId).sort((a, b) => (a.priority || 1) - (b.priority || 1));
       if (children.length === 0) return;
 
@@ -677,7 +680,15 @@ export default function App() {
       children.forEach(child => {
         const childHeight = nodeHeights.get(child.id) || estimateNodeHeight(child);
         const childY = currentY + childHeight / 2;
-        const childX = startX + direction * horizontalSpacing;
+        
+        const childW = 200;
+        const horizontalGap = 40;
+        let childX;
+        if (direction === 1) {
+          childX = startX + parentW + horizontalGap;
+        } else {
+          childX = startX - childW - horizontalGap;
+        }
 
         newPositions.set(child.id, { x: childX, y: childY });
         positionSubtree(child.id, childX, childY, direction);
@@ -730,14 +741,18 @@ export default function App() {
 
           if (rightChildren[i]) {
             const child = rightChildren[i];
-            const childX = rootX + horizontalSpacing;
+            const rootW = 180;
+            const horizontalGap = 40;
+            const childX = rootX + rootW + horizontalGap;
             newPositions.set(child.id, { x: childX, y: rowY });
             positionSubtree(child.id, childX, rowY, 1);
           }
 
           if (leftChildren[i]) {
             const child = leftChildren[i];
-            const childX = rootX - horizontalSpacing;
+            const childW = 200;
+            const horizontalGap = 40;
+            const childX = rootX - childW - horizontalGap;
             newPositions.set(child.id, { x: childX, y: rowY });
             positionSubtree(child.id, childX, rowY, -1);
           }
